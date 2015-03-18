@@ -112,12 +112,17 @@ def get_fwhm(xpapoint):
     image = hdu_link[0].data
 
     # initally, target should be the only selected region
-    win.set("regions centroid")
+    # ceontroid 50 times (DS9 algo for centroiding is not great)
+    for x in range(0, 49):
+        win.set("regions centroid")
     targetrows = win.get("regions selected") 
     target = pyregion.parse(targetrows)
     xt = target[0].coord_list[0]
     yt = target[0].coord_list[1]
     r  = target[0].coord_list[2]
+
+
+    print "Xcen Ycen", xt, yt
 
     # check if target is length of one
     if len(target)!=1:
@@ -137,12 +142,13 @@ def get_fwhm(xpapoint):
 
     fwhm, coefs = fwhm_radial_plot(crop_image)
     ## these output valeues can be used later on for something
-    #print('%-6s %7.3f' % ('FWHM: ', fwhm))
+    print('%-6s %7.3f' % ('FWHM: ', fwhm))
 
 if __name__ == "__main__":
 
     import sys
     xpaname = sys.argv[1]
+    print " Calculating centroid and FWHM "
     get_fwhm(xpaname)
 
 # Earlier version of this code had been taking the radius as input
