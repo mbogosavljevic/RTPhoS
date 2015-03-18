@@ -31,8 +31,8 @@ def seekfits(path_to_watch, tsleep):
            for filein in enumerate(added):                  
              # check if it is a fits file
              filename=filein[1]
-             # WARNING - hardcoded the '.fits' extension
-             if filename.endswith('.fits'):
+             # WARNING - hardcoded the '.fits' and '.fit' extensions
+             if (filename.endswith('.fits') or filename.endswith('.fit')):
                # Can load both data and header with this trick
                data, hdr=pyfits.getdata(filename, header=True)              
                # Get Observation Header for image and display it
