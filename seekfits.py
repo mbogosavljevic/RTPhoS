@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # M. Bogosavljevic, AOB, March 2015
 # expanding capability of images.py by Z. Ioannou 
 # *** work in progress ****
@@ -38,12 +39,13 @@ def seekfits(path_to_watch, tsleep):
              if (filename.endswith('.fits') or filename.endswith('.fit')):
                # Can load both data and header with this trick
                data, hdr = pyfits.getdata(filename, header=True)              
+
                # Get Observation Header for image and display it
-               obsdate = hdr['DATE-OBS']
-               print obsdate
-               # Display the data mean
-               print "Mean value:",np.mean(data)
-           
+               dateobs     = hdr['DATE-OBS']
+               timeobs     = hdr['UTC']
+               exposure    = hdr['EXPTIME']
+               CCDfilter   = hdr['FILTER']
+
          before = after
          time.sleep (tsleep)   # Wait for tsleep seconds before repeating
   except KeyboardInterrupt:

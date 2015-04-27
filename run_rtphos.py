@@ -182,6 +182,32 @@ def zach_offsets(dataref,data2):
     
     return (xshift, yshift)
 
+def write_optphot_init(imdir, comparisons, targets)
+
+    text_file1 = open(imdir+"psf.cat", "w")
+    text_file2 = open(imdir+"stars.cat", "w")
+    text_file1.write("!\n!\n!\n")
+    text_file2.write("!\n!\n!\n")
+   
+    nt = len(targets)
+    for i in range(0,nc):
+        x = targets[i][0][0]
+        y = targets[i][0][1]
+        # write the target as the first source in stars.cat
+        text_file2.write('%-5s %8.1f %8.1f \n' % ("1", xt, yt) )
+
+    nc = len(comparisons)
+    for k in range(0,nc):
+        x = comparisons[k][0][0]
+        y = comparisons[k][0][1]
+        text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x, y) )
+        text_file2.write('%-5i %8.1f %8.1f \n' % (k+2, x, y) )
+        print('%-5i %8.1f %8.1f' % (k+1, x, y) )
+
+    text_file1.close()
+    text_file2.close()
+    return, 1
+
 def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
 
     before = dict ([(f, None) for f in os.listdir (imdir)])
@@ -225,14 +251,10 @@ def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
                  #print "Offsets ", thisoffset
 
                  # create optphot init files
+                 t = write_optphot_init(imdir, comparisons, targets)
                  ### RUN OPTPHOT ......
                  #!!!!!!
                  
-
-                 ################################################
-               else:
-                 print "Whatsaaap"
-
            before = after
            time.sleep (tsleep)   # Wait for tsleep seconds before repeating
     except KeyboardInterrupt:
@@ -306,7 +328,6 @@ def run_rtphos(xpapoint):
     
 if  __name__ == "__main__":
 
-    global xpapoint 
     import sys
     xpapoint       = sys.argv[1]
     run_rtphos(xpapoint)
