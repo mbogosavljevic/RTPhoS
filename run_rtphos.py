@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# M. Bogosavljevic, AOB, March 2015
+# M. Bogosavljevic, AOB, May 2015
 ### WORK IN PROGRESS!!!! ###
 ### Contains 
 ### gauss : just a gaussian function definition for PSF fitting
@@ -17,7 +17,7 @@
 
 import pyregion
 import pyfits
-import ds9
+import pyds9
 import numpy as np
 import os, time
 from   scipy.optimize import curve_fit
@@ -38,6 +38,7 @@ def gauss(x, *p):
 ##############################################################################
 
 def fwhm_from_star(image):
+# requires gauss
 #   Calculate the azimuthal radial profile.
 #   Input image should be a small stamp from the 2D image (already cropped)
 
@@ -82,9 +83,10 @@ def fwhm_from_star(image):
 #############################################################################
 
 def get_comps_fwhm(comparisons, xpapoint):
+# requires fwhm_from_star, namesplit
 
     # create a ds9 object linked with an XPA point
-    win = ds9.ds9(xpapoint)
+    win = pyds9.DS9(xpapoint)
     # load the image from ds9 (not from disk!)
     hdu_link = win.get_pyfits() 
     image = hdu_link[0].data
@@ -111,102 +113,6 @@ def get_comps_fwhm(comparisons, xpapoint):
         
     mean_fwhm = tot_fwhm / nc
     return mean_fwhm
-
-def zach_offsets(dataref,data2red):
-
-    import pyfits
-    from scipy import signal, ndimage
-    import numpy
-    
-    xshift = 0
-    yshift = 0
-    
-    # Crop the image by 10 pixels on each side
-    xsize1 = dataref.shape[0]
-    ysize1 = dataref.shape[1]
-    
-    xstart = 9
-    xend   = xsize1-10	
-    ystart = 9
-    yend   = ysize1-10
-    
-    croped1 = dataref[xstart:xend,ystart:yend]
-    median1 = pyfits.np.median(croped1)
-    
-    # Create image 1 mask and blur it using a Gausian filter of
-    # FWHM of 1 pixel. Then any pixel with a value less than 100
-    # is set to zero.
-    
-    # WARNING - This is completely arbitrary but usually
-    # pixels that correspond to actual stars will have values
-    # a lot greater than 100.
-    
-    mask1   = croped1
-    mask1[mask1 < 1.5*median1] = 0.0
-    blured1 = ndimage.gaussian_filter(croped1, sigma=1)
-    mask1   = blured1
-    mask1[mask1 < 100.0] = 0.0
-    
-    # Get the size of the croped masked arrays
-    xsize = mask1.shape[0]
-    ysize = mask1.shape[1]
-    
-    # Create collapsed image arrays for reference image dataref
-    xvals1 = mask1.sum(axis=0)
-    yvals1 = mask1.sum(axis=1)
-    
-    # Crop the data2 image by 10 pixes on each side
-    xsize2 = data2red.shape[0]
-    ysize2 = data2red.shape[1]
-    xstart = 9
-    xend   = xsize2-10
-    ystart = 9
-    yend   = ysize2-10
-    croped2 = data2red[xstart:xend,ystart:yend]
-    median2 = pyfits.np.median(croped2)
-      	
-    # Create image 2 mask and blur it
-    mask2   = croped2
-    mask2[mask2 < 1.5*median2] = 0.0
-    blured2 = ndimage.gaussian_filter(croped2, sigma=1)
-    mask2   = blured2
-    mask2[mask2 < 100.0] = 0.0
-      
-    # Create collapsed image arrays for image 2
-    xvals2=mask2.sum(axis=0)
-    yvals2=mask2.sum(axis=1)
-    
-    # Calculate the x and y shift of the image in pixels using cross correlation
-    xshift = (numpy.argmax(signal.correlate(xvals1,xvals2)))-(ysize-1)
-    yshift = (numpy.argmax(signal.correlate(yvals1,yvals2)))-(xsize-1)
-    
-    return (xshift, yshift)
-
-def write_optphot_init(imdir, comparisons, targets)
-
-    text_file1 = open(imdir+"psf.cat", "w")
-    text_file2 = open(imdir+"stars.cat", "w")
-    text_file1.write("!\n!\n!\n")
-    text_file2.write("!\n!\n!\n")
-   
-    nt = len(targets)
-    for i in range(0,nc):
-        x = targets[i][0][0]
-        y = targets[i][0][1]
-        # write the target as the first source in stars.cat
-        text_file2.write('%-5s %8.1f %8.1f \n' % ("1", xt, yt) )
-
-    nc = len(comparisons)
-    for k in range(0,nc):
-        x = comparisons[k][0][0]
-        y = comparisons[k][0][1]
-        text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x, y) )
-        text_file2.write('%-5i %8.1f %8.1f \n' % (k+2, x, y) )
-        print('%-5i %8.1f %8.1f' % (k+1, x, y) )
-
-    text_file1.close()
-    text_file2.close()
-    return, 1
 
 def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
 
@@ -260,13 +166,15 @@ def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
      pass
 
 def run_rtphos(xpapoint):
+# requires get_comps_fwhm, seekfits
 
     # create a ds9 object linked with an XPA point
-    win = ds9.ds9(xpapoint)
+    win = pyds9.DS9(xpapoint)
     # load the image which is displayed in ds9 (from disk!)
     ref_filename = win.get("file")
     dataref, hdr = pyfits.getdata(ref_filename, header=True)     
-    
+    print("... Working ...")
+
     # Check if the file has been processed (bias,dark,flat)
     # (will use standard IRAF keywords for this)
     ## ### TBD !!!! ####
