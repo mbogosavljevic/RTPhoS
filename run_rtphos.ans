@@ -1,0 +1,4 @@
+RUN RTPHOS
+*
+menu
+run_rtphos.py $xpa_method
