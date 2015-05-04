@@ -114,7 +114,116 @@ def get_comps_fwhm(comparisons, xpapoint):
     mean_fwhm = tot_fwhm / nc
     return mean_fwhm
 
+#############################################################################
+
+def zach_offsets(dataref,data2red):
+
+    import pyfits
+    from scipy import signal, ndimage
+    import numpy
+    
+    xshift = 0
+    yshift = 0
+    
+    # Crop the image by 10 pixels on each side
+    xsize1 = dataref.shape[0]
+    ysize1 = dataref.shape[1]
+    
+    xstart = 9
+    xend   = xsize1-10	
+    ystart = 9
+    yend   = ysize1-10
+    
+    croped1 = dataref[xstart:xend,ystart:yend]
+    median1 = pyfits.np.median(croped1)
+    
+    # Create image 1 mask and blur it using a Gausian filter of
+    # FWHM of 1 pixel. Then any pixel with a value less than 100
+    # is set to zero.
+    
+    # WARNING - This is completely arbitrary but usually
+    # pixels that correspond to actual stars will have values
+    # a lot greater than 100.
+    
+    mask1   = croped1
+    mask1[mask1 < 1.5*median1] = 0.0
+    blured1 = ndimage.gaussian_filter(croped1, sigma=1)
+    mask1   = blured1
+    mask1[mask1 < 100.0] = 0.0
+    
+    # Get the size of the croped masked arrays
+    xsize = mask1.shape[0]
+    ysize = mask1.shape[1]
+    
+    # Create collapsed image arrays for reference image dataref
+    xvals1 = mask1.sum(axis=0)
+    yvals1 = mask1.sum(axis=1)
+    
+    # Crop the data2 image by 10 pixes on each side
+    xsize2 = data2red.shape[0]
+    ysize2 = data2red.shape[1]
+    xstart = 9
+    xend   = xsize2-10
+    ystart = 9
+    yend   = ysize2-10
+    croped2 = data2red[xstart:xend,ystart:yend]
+    median2 = pyfits.np.median(croped2)
+      	
+    # Create image 2 mask and blur it
+    mask2   = croped2
+    mask2[mask2 < 1.5*median2] = 0.0
+    blured2 = ndimage.gaussian_filter(croped2, sigma=1)
+    mask2   = blured2
+    mask2[mask2 < 100.0] = 0.0
+      
+    # Create collapsed image arrays for image 2
+    xvals2=mask2.sum(axis=0)
+    yvals2=mask2.sum(axis=1)
+    
+    # Calculate the x and y shift of the image in pixels using cross correlation
+    xshift = (numpy.argmax(signal.correlate(xvals1,xvals2)))-(ysize-1)
+    yshift = (numpy.argmax(signal.correlate(yvals1,yvals2)))-(xsize-1)
+    
+    return (xshift, yshift)
+
+#############################################################################
+
+def write_optphot_init(imdir, comparisons, targets):
+
+    text_file1 = open(imdir+"/psf.cat", "w")
+    text_file2 = open(imdir+"/stars.cat", "w")
+    text_file1.write("!\n!\n!\n")
+    text_file2.write("!\n!\n!\n")
+   
+    nt = len(targets)
+    print("Targets nt:", nt)
+    for i in range(0,nt):
+        x = targets[i][0][0]
+        y = targets[i][0][1]
+        # write the target as the first source in stars.cat
+        text_file2.write('%-5s %8.1f %8.1f \n' % ("1", x, y) )
+
+    nc = len(comparisons)
+    print("Comparisons nc:", nc)
+    for k in range(0,nc):
+        x = comparisons[k][0][0]
+        y = comparisons[k][0][1]
+        text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x, y) )
+        text_file2.write('%-5i %8.1f %8.1f \n' % (k+2, x, y) )
+        #print('%-5i %8.1f %8.1f' % (k+1, x, y) )
+
+    text_file1.close()
+    text_file2.close()
+    print ("Wrote:", imdir+"/psf.cat")
+    print ("Wrote:", imdir+"/stars.cat")
+    return (1)
+
+#############################################################################
+
 def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
+# requires zach_offsets, write_optphot_init
+
+    print("IMDIR: "+imdir)
 
     before = dict ([(f, None) for f in os.listdir (imdir)])
     
@@ -129,7 +238,7 @@ def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
            added = [f for f in after if not f in before]
 
            if added: 
-             print "Added: ", ", ".join (added)
+             print "Added files: ", ", ".join (added)
              for filein in enumerate(added):                  
                # check if it is a fits file
                filename = imdir + '/' + filein[1] 
@@ -138,13 +247,14 @@ def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
                if (filename.endswith('.fits') or filename.endswith('.fit')):
                  # Can load both data and header with this trick
                  data2, hdr = pyfits.getdata(filename, header=True)              
-    
+                 print("I read image: "+filename)
+
                  # Get Observation Header for image and display it
-                 dateobs     = hdr['DATE-OBS']
-                 timeobs     = hdr['TIME-OBS']
-                 exposure    = hdr['EXPTIME']
-                 CCDfilter   = hdr['FILTER']
-                 print dateobs, timeobs, exposure, CCDfilter
+                 #dateobs     = hdr['DATE-OBS']
+                 #timeobs     = hdr['TIME-OBS']
+                 #exposure    = hdr['EXPTIME']
+                 #CCDfilter   = hdr['FILTER']
+                 #print dateobs, timeobs, exposure, CCDfilter
                  ################################################
                  # now initiate the calibration, offsets and photometry
 
@@ -153,10 +263,12 @@ def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
 
                  # find offsets from dataref
                  thisoffset = zach_offsets(dataref,data2)
-                 #print "Offsets ", thisoffset
+                 print "Offsets ", thisoffset
 
                  # create optphot init files
+                 print("Targets here", targets)
                  t = write_optphot_init(imdir, comparisons, targets)
+                 print "Wrote init files"
                  ### RUN OPTPHOT ......
                  #!!!!!!
                  
@@ -194,7 +306,10 @@ def run_rtphos(xpapoint):
     # I do it twice with different radii on purpose
     win.set("regions centroid radius 20")
     win.set("regions centroid iteration 20")
-    win.set("regions centroid")
+    # not happy at all with DS9 centering so repeating it 50 times
+    for x in range(0, 49):
+        win.set("regions centroid")
+
     win.set("regions centroid radius 5")
     win.set("regions centroid iteration 5")
     win.set("regions centroid")
@@ -209,13 +324,18 @@ def run_rtphos(xpapoint):
     sourcelist = win.get("regions selected") 
     sources    = pyregion.parse(sourcelist)
     n = len(sources)
+    print("I see "+ str(n) + " sources")
     # find out which are the comparison stars (they must have "C-" in name)
  
     comparisons  = [(s.coord_list,s.comment) for s in sources if "C-" in s.comment]
     nc = len(comparisons)
     targets =  [(s.coord_list,s.comment) for s in sources if not("C-" in s.comment)]
     nt = len(targets)
-    
+    #print("Comparisons:")
+    #print(comparisons)
+    #print("Targets:")
+    #print(targets)
+
     if nc == 0:
         print("Must have one comparison star labeled as 'C-<name>' ")
         raise Exception("Must have one comparison star labeled as 'C-<name>' ")
