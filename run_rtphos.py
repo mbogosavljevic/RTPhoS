@@ -2,7 +2,7 @@
 # M. Bogosavljevic, AOB, March 2015
 ### WORK IN PROGRESS!!!! ###
 ### Contains 
-### gauss : just a gaussian function definision for PSF fitting
+### gauss : just a gaussian function definition for PSF fitting
 ### fwhm_from_star : fit the gauss and returns FWM (in pixels)
 ### get_comps_fwhm : do the above fit for a number of comparison stars,
 ###                  returns average (in pixels)
@@ -112,7 +112,7 @@ def get_comps_fwhm(comparisons, xpapoint):
     mean_fwhm = tot_fwhm / nc
     return mean_fwhm
 
-def zach_offsets(dataref,data2):
+def zach_offsets(dataref,data2red):
 
     import pyfits
     from scipy import signal, ndimage
@@ -156,13 +156,13 @@ def zach_offsets(dataref,data2):
     yvals1 = mask1.sum(axis=1)
     
     # Crop the data2 image by 10 pixes on each side
-    xsize2 = data2.shape[0]
-    ysize2 = data2.shape[1]
+    xsize2 = data2red.shape[0]
+    ysize2 = data2red.shape[1]
     xstart = 9
     xend   = xsize2-10
     ystart = 9
     yend   = ysize2-10
-    croped2 = data2[xstart:xend,ystart:yend]
+    croped2 = data2red[xstart:xend,ystart:yend]
     median2 = pyfits.np.median(croped2)
       	
     # Create image 2 mask and blur it
@@ -243,8 +243,7 @@ def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
                  # now initiate the calibration, offsets and photometry
 
                  # test if the image has been calibrated previously
-                 ### test_for_calib.py ...
-                 ### if not processed, do calib.py ...
+                 ### test_for_calib.py, reduce_image.py ...
 
                  # find offsets from dataref
                  thisoffset = zach_offsets(dataref,data2)
@@ -271,8 +270,8 @@ def run_rtphos(xpapoint):
     # Check if the file has been processed (bias,dark,flat)
     # (will use standard IRAF keywords for this)
     ## ### TBD !!!! ####
-    ### test_for_calib.py ...
-    ### if not processed, do calib.py ...
+    ### make functino test_for_calib that checks the header (Zach) ...
+    ### if not processed, do reduce_image.py (Zach) ...
     ### return the processed filename
     
     # extract path to where other images are expected to be coming in
