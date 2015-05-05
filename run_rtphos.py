@@ -292,6 +292,8 @@ def run_rtphos(xpapoint):
     keywordlist = hdr.keys()
     biascor = darkcor = flatcor = False  # set flags to False
 
+    # Look for these IRAF keywords, if they exist assume that the image has 
+    # been calibrated.
     if "ZEROCOR" in keywordlist:
 	print "Bias has been removed"
 	biascor = True
@@ -302,9 +304,28 @@ def run_rtphos(xpapoint):
 	print "Flat field has been applied"
 	flatcor = True
 
+    # Do the calibration according to which part is missing. The calibration assumes
+    # that the calibration frames masterbias, masterdark and masterflat have already
+    # been created and are in the same directory. Their names are hardwired in the
+    # code. Zach currently working on creating the the bias, darks and flats automatically.
+    if not biascor:
+	biasimg = pyfits.open('masterbias.fits')
+	biasref = biasimg[0].data
+	dataref = dataref - biasref
+	print "Uncalibrated image: Removed Bias"
 
-    ## ### TBD !!!! ####
-    ### make functino test_for_calib that checks the header (Zach) ...
+    if not darkcor:
+	darkimg = pyfits.open('masterdark.fits')
+	darkref = darkimg[0].data
+	dataref = dataref - darkref
+	print "Uncalibrated image: Removed Dark"
+
+    if not flatcor:
+	flatimg = pyfits.open('masterflat.fits')
+	flatref = flatimg[0].data
+	dataref = dataref / flatref
+	print "Uncalibrated image: Removed Flat"
+
     ### if not processed, do reduce_image.py (Zach) ...
     ### return the processed filename
     

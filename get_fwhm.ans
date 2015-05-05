@@ -1,4 +1,0 @@
-Radial Profile
-*
-bind r
-get_fwhm.py $xpa_method | $text
