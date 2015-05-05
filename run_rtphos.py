@@ -289,6 +289,20 @@ def run_rtphos(xpapoint):
 
     # Check if the file has been processed (bias,dark,flat)
     # (will use standard IRAF keywords for this)
+    keywordlist = hdr.keys()
+    biascor = darkcor = flatcor = False  # set flags to False
+
+    if "ZEROCOR" in keywordlist:
+	print "Bias has been removed"
+	biascor = True
+    if "DARKCOR" in keywordlist:
+	print "Dark has been removed"
+	darkcor = True
+    if "FLATCOR" in keywordlist:
+	print "Flat field has been applied"
+	flatcor = True
+
+
     ## ### TBD !!!! ####
     ### make functino test_for_calib that checks the header (Zach) ...
     ### if not processed, do reduce_image.py (Zach) ...
