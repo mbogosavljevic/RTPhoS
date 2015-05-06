@@ -49,7 +49,7 @@ def makebias(dataref):
 
 	return masterbias
 
-# Create a Masterdark frame from available bias frames.
+# Create a Masterdark frame from available dark frames.
 #-------------------------------------------------------------
 def makedark(dataref):
 	# Initialize darkframes dictionary
@@ -101,6 +101,74 @@ def makedark(dataref):
 
 	return masterdark
 
+# Create a Masteflat frame from available flat field frames.
+#-------------------------------------------------------------
+def makeflat(dataref):
+	# Initialize flatframes dictionary
+	flatframes = {}
+    
+	# Search for all flat field files in the current directory
+	# Warning: will search for all files with the text 'flat' in their filename.
+	flatfiles = sorted(glob.glob('*flat*'))
+	flatnum = len(flatfiles)		
+	print "Found ",flatnum, "flat frames"
+	if flatnum==0:
+		masterflat=1.0
+		print "WARNING: No flat field frames found data will not be flat fielded!"
+		return masterflat
+
+	# Determine the size of the image based on the size of the first flat field file.
+	nx = pyfits.getval(flatfiles[0], 'NAXIS1')
+	ny = pyfits.getval(flatfiles[0], 'NAXIS2')
+
+	# Set up the array that will hold all the flat field images.
+	flat_images = np.ndarray((flatnum,nx,ny),dtype=float)
+
+	# Go round this loop and fill the flat field images array.
+	for i in range(0,flatnum):
+		print 'Reading file',i
+		flat_images[i] = pyfits.getdata(flatfiles[i])
+
+	# Median combine the flat field frames
+	masterflat = np.median(flat_images, axis=0)
+
+	# Check to see if a masterbias exists and if it does subract it from the flat field.
+	if os.path.isfile('masterbias.fits'):	
+		biasimg = pyfits.open('masterbias.fits')
+		masterbias = biasimg[0].data
+		masterflat = masterflat - masterbias
+	# If the bias does not exist, create it.
+	else:
+		masterbias = makebias(dataref)
+		masterflat = masterflat - masterbias
+
+	# Check to see if a masterdark exists and if it does subract it from the flat field.
+	if os.path.isfile('masterdark.fits'):	
+		biasimg = pyfits.open('masterdark.fits')
+		masterdark = darkimg[0].data
+		masterflat = masterflat - masterdark
+	# If the bias does not exist, create it.
+	else:
+		masterdark = makedark(dataref)
+		masterflat = masterflat - masterdark
+
+	flatmedian = np.median(masterflat)
+	print "Flat Median: ", np.median(masterflat)
+	masterflat = masterflat/flatmedian
+	print "Nomalized Flat Median: ", np.median(masterflat)
+
+	# Output the normalized masterflat frame.
+	# Filename hardwired as masterflat.fits
+	hdu=pyfits.PrimaryHDU(masterflat)
+	hdu.writeto('masterflat.fits')
+  
+	# Free the memory!  
+	del flat_images
+
+	return masterflat
+
+
+# --------------- MAIN ---------------------------------------
 #ref_filename = win.get("file")
 ref_filename = 'J1753.fits'
 dataref, hdr = pyfits.getdata(ref_filename, header=True)     
@@ -115,9 +183,9 @@ biascor = darkcor = flatcor = False  # set calib flags to False
 # been calibrated.
 if "ZEROCOR" in keywordlist:
 	biascor = True
-if "zach" in keywordlist:
+if "DARKCOR" in keywordlist:
 	darkcor = True
-if "FLATCOR" in keywordlist:
+if "zach" in keywordlist:
 	flatcor = True
 
 # Do the calibration according to which part is missing. The calibration assumes
@@ -131,11 +199,11 @@ if not biascor:
 		biasimg = pyfits.open('masterbias.fits')
 		masterbias = biasimg[0].data
 		dataref = dataref - masterbias
-		print "Bias calibration performed"
+		print "Bias calibration performed!"
 	else:
 		masterbias = makebias(dataref)
 		dataref = dataref - masterbias
-		print "Bias calibration performed"
+		print "Bias calibration performed!"
 
 if not darkcor:
 	print "Frame is not Dark calibrated"
@@ -144,19 +212,25 @@ if not darkcor:
 		darkimg = pyfits.open('masterdark.fits')
 		masterdark = darkimg[0].data
 		dataref = dataref - masterdark
-		print "Dark calibration performed"
+		print "Dark calibration performed!"
 	else:
 		masterdark = makedark(dataref)
 		dataref = dataref - masterdark
-		print "Dark calibration performed"
+		print "Dark calibration performed!"
 
-"""
 if not flatcor:
-	flatimg = pyfits.open('masterflat.fits')
-	flatref = flatimg[0].data
-	dataref = dataref / flatref
-	print "Uncalibrated image: Removed Flat"
-"""
+	print "Frame is not Flat fielded"
+	print "Proceeding with Flat fielding..."
+	if os.path.isfile('masterflat.fits'):	
+		flatimg = pyfits.open('masterflat.fits')
+		masterflat = flatimg[0].data
+		dataref = dataref/masterflat
+		print "Flat fielding performed!"
+	else:
+		masterflat = makeflat(dataref)
+		dataref = dataref/masterflat
+		print "Flat fielding performed!"
+
 # Write calibrated file to disk
 hdu=pyfits.PrimaryHDU(dataref)
 hdu.writeto('testcalib.fits')
@@ -164,48 +238,4 @@ print "All Done!"
 
 
 
-"""
-# Create a Masterdark frame from available dark frames.
--------------------------------------------------------------
-
-# Create a Masterflat frame from available flat field frames.
--------------------------------------------------------------
-# Initialize flat frames dictionary
-flatframes = {}
-    
-# Search for all flat field files in the current directory
-# Warning: will search for all files with the text 'flat' in their filename.
-flatfiles = sorted(glob.glob('*flat*'))
-print "Found ",len(flatfiles), "flat field frames"
-
-# Determine the size of the image based on the size of the first flat field file.
-nx = pyfits.getval(flatfiles[0], 'NAXIS1')
-ny = pyfits.getval(flatfiles[0], 'NAXIS2')
-
-# Set up the array that will hold all the flat field images.
-flatnum = len(flatfiles)
-flat_images = np.ndarray((flatnum,nx,ny),dtype=float)
-
-# Go round this loop and fill the flat field images array.
-for i in range(0,flatnum):
-    print 'Reading file',i
-    flat_images[i] = pyfits.getdata(flatfiles[i])
-
-# Median combine the flat field frames
-masterflat_cts = np.median(flat_images, axis=0)
-
-# Find the median value of the masterflat_cts frame and divide by it to creat the
-# masterflat image.
-median = masterflat_cts.median()
-print median
-masterflat = masterflat_cts/median
-
-# Output the masterflat frame.
-# Filename hardwired as masterflat.fits
-hdu=pyfits.PrimaryHDU(masterflat)
-hdu.writeto('masterflat.fits')
-  
-# Free the memory!  
-del flat_images
-"""
 
