@@ -1,0 +1,119 @@
+#!/usr/bin/python
+#
+
+import pyfits
+import glob
+import numpy as np
+import sys
+
+
+# Create a Masterbias frame from available bias frames.
+-------------------------------------------------------------
+# Initialize biasframes dictionary
+biasframes = {}
+    
+# Search for all bias files in the current directory
+# Warning: will search for all files with the text 'bias' in their filename.
+biasfiles = sorted(glob.glob('*bias*'))
+print "Found ",len(biasfiles), "bias frames"
+
+# Determine the size of the image based on the size of the first bias file.
+nx = pyfits.getval(biasfiles[0], 'NAXIS1')
+ny = pyfits.getval(biasfiles[0], 'NAXIS2')
+
+# Set up the array that will hold all the bias images.
+biasnum = len(biasfiles)
+bias_images = np.ndarray((biasnum,nx,ny),dtype=float)
+
+# Go round this loop and fill the bias images array.
+for i in range(0,biasnum):
+    print 'Reading file',i
+    bias_images[i] = pyfits.getdata(biasfiles[i])
+
+# Median combine the bias frame
+masterbias = np.median(bias_images, axis=0)
+
+# Output the masterbias frame.
+# Filename hardwired as masterbias.fits
+hdu=pyfits.PrimaryHDU(masterbias)
+hdu.writeto('masterbias.fits')
+  
+# Free the memory!  
+del bias_images
+
+
+# Create a Masterdark frame from available dark frames.
+-------------------------------------------------------------
+# Initialize darkframes dictionary
+darkframes = {}
+    
+# Search for all dark files in the current directory
+# Warning: will search for all files with the text 'dark' in their filename.
+darkfiles = sorted(glob.glob('*dark*'))
+print "Found ",len(darkfiles), "dark frames"
+
+# Determine the size of the image based on the size of the first dark file.
+nx = pyfits.getval(darkfiles[0], 'NAXIS1')
+ny = pyfits.getval(darkfiles[0], 'NAXIS2')
+
+# Set up the array that will hold all the dark images.
+darknum = len(darkfiles)
+dark_images = np.ndarray((darknum,nx,ny),dtype=float)
+
+# Go round this loop and fill the bias images array.
+for i in range(0,darknum):
+    print 'Reading file',i
+    dark_images[i] = pyfits.getdata(darkfiles[i])
+
+# Median combine the dark frame
+masterdark = np.median(dark_images, axis=0)
+
+# Output the masterdark frame.
+# Filename hardwired as masterdark.fits
+hdu=pyfits.PrimaryHDU(masterdark)
+hdu.writeto('masterdark.fits')
+  
+# Free the memory!  
+del dark_images
+
+# Create a Masterflat frame from available flat field frames.
+-------------------------------------------------------------
+# Initialize flat frames dictionary
+flatframes = {}
+    
+# Search for all flat field files in the current directory
+# Warning: will search for all files with the text 'flat' in their filename.
+flatfiles = sorted(glob.glob('*flat*'))
+print "Found ",len(flatfiles), "flat field frames"
+
+# Determine the size of the image based on the size of the first flat field file.
+nx = pyfits.getval(flatfiles[0], 'NAXIS1')
+ny = pyfits.getval(flatfiles[0], 'NAXIS2')
+
+# Set up the array that will hold all the flat field images.
+flatnum = len(flatfiles)
+flat_images = np.ndarray((flatnum,nx,ny),dtype=float)
+
+# Go round this loop and fill the flat field images array.
+for i in range(0,flatnum):
+    print 'Reading file',i
+    flat_images[i] = pyfits.getdata(flatfiles[i])
+
+# Median combine the flat field frames
+masterflat_cts = np.median(flat_images, axis=0)
+
+# Find the median value of the masterflat_cts frame and divide by it to creat the
+# masterflat image.
+median = masterflat_cts.median()
+print median
+masterflat = masterflat_cts/median
+
+# Output the masterflat frame.
+# Filename hardwired as masterflat.fits
+hdu=pyfits.PrimaryHDU(masterflat)
+hdu.writeto('masterflat.fits')
+  
+# Free the memory!  
+del flat_images
+
+
