@@ -5,43 +5,104 @@ import pyfits
 import glob
 import numpy as np
 import sys
-
+import os
 
 # Create a Masterbias frame from available bias frames.
--------------------------------------------------------------
-# Initialize biasframes dictionary
-biasframes = {}
+#-------------------------------------------------------------
+def makebias(dataref, hdr):
+	# Initialize biasframes dictionary
+	biasframes = {}
     
-# Search for all bias files in the current directory
-# Warning: will search for all files with the text 'bias' in their filename.
-biasfiles = sorted(glob.glob('*bias*'))
-print "Found ",len(biasfiles), "bias frames"
+	# Search for all bias files in the current directory
+	# Warning: will search for all files with the text 'bias' in their filename.
+	biasfiles = sorted(glob.glob('*bias*'))
+	print "Found ",len(biasfiles), "bias frames"
 
-# Determine the size of the image based on the size of the first bias file.
-nx = pyfits.getval(biasfiles[0], 'NAXIS1')
-ny = pyfits.getval(biasfiles[0], 'NAXIS2')
+	# Determine the size of the image based on the size of the first bias file.
+	nx = pyfits.getval(biasfiles[0], 'NAXIS1')
+	ny = pyfits.getval(biasfiles[0], 'NAXIS2')
 
-# Set up the array that will hold all the bias images.
-biasnum = len(biasfiles)
-bias_images = np.ndarray((biasnum,nx,ny),dtype=float)
+	# Set up the array that will hold all the bias images.
+	biasnum = len(biasfiles)
+	bias_images = np.ndarray((biasnum,nx,ny),dtype=float)
 
-# Go round this loop and fill the bias images array.
-for i in range(0,biasnum):
-    print 'Reading file',i
-    bias_images[i] = pyfits.getdata(biasfiles[i])
+	# Go round this loop and fill the bias images array.
+	for i in range(0,biasnum):
+   	 print 'Reading file',i
+    	 bias_images[i] = pyfits.getdata(biasfiles[i])
 
-# Median combine the bias frame
-masterbias = np.median(bias_images, axis=0)
+	# Median combine the bias frame
+	masterbias = np.median(bias_images, axis=0)
 
-# Output the masterbias frame.
-# Filename hardwired as masterbias.fits
-hdu=pyfits.PrimaryHDU(masterbias)
-hdu.writeto('masterbias.fits')
-  
-# Free the memory!  
-del bias_images
+	# Output the masterbias frame.
+	# Filename hardwired as masterbias.fits
+	hdu=pyfits.PrimaryHDU(masterbias)
+	hdu.writeto('masterbias.fits')
+
+	# Free the memory!  
+	del bias_images
+
+	return (masterbias)
 
 
+# load the image which is displayed in ds9 (from disk!)
+#ref_filename = win.get("file")
+ref_filename = 'test1753.fits'
+dataref, hdr = pyfits.getdata(ref_filename, header=True)     
+print("... Working ...")
+
+# Check if the file has been processed (bias,dark,flat)
+# (will use standard IRAF keywords for this)
+keywordlist = hdr.keys()
+biascor = darkcor = flatcor = False  # set calib flags to False
+
+# Look for these IRAF keywords, if they exist assume that the image has 
+# been calibrated.
+if "zach" in keywordlist:
+	biascor = True
+if "DARKCOR" in keywordlist:
+	darkcor = True
+if "FLATCOR" in keywordlist:
+	flatcor = True
+
+# Do the calibration according to which part is missing. The calibration assumes
+# that the calibration frames masterbias, masterdark and masterflat have already
+# been created and are in the same directory. Their names are hardwired in the
+# code. Zach currently working on creating the the bias, darks and flats automatically.
+if not biascor:
+	print "Frame is not Bias calibrated"
+	print "Proceeding with removing the bias..."
+	if os.path.isfile('masterbias.fits'):	
+		biasimg = pyfits.open('masterbias.fits')
+		masterbias = biasimg[0].data
+		dataref = dataref - masterbias
+		print "Bias calibration performed"
+	else:
+		makebias(dataref, hdr)
+		dataref = dataref - masterbias
+		print "Bias calibration performed"
+
+"""
+if not darkcor:
+	darkimg = pyfits.open('masterdark.fits')
+	darkref = darkimg[0].data
+	dataref = dataref - darkref
+	print "Uncalibrated image: Removed Dark"
+
+if not flatcor:
+	flatimg = pyfits.open('masterflat.fits')
+	flatref = flatimg[0].data
+	dataref = dataref / flatref
+	print "Uncalibrated image: Removed Flat"
+"""
+# Write calibrated file to disk
+hdu=pyfits.PrimaryHDU(dataref)
+hdu.writeto('testbias.fits')
+print "All Done!"
+
+
+
+"""
 # Create a Masterdark frame from available dark frames.
 -------------------------------------------------------------
 # Initialize darkframes dictionary
@@ -115,5 +176,5 @@ hdu.writeto('masterflat.fits')
   
 # Free the memory!  
 del flat_images
-
+"""
 
