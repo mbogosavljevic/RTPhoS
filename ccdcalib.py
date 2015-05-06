@@ -9,7 +9,7 @@ import os
 
 # Create a Masterbias frame from available bias frames.
 #-------------------------------------------------------------
-def makebias(dataref, hdr):
+def makebias(dataref):
 	# Initialize biasframes dictionary
 	biasframes = {}
     
@@ -28,11 +28,12 @@ def makebias(dataref, hdr):
 
 	# Go round this loop and fill the bias images array.
 	for i in range(0,biasnum):
-   	 print 'Reading file',i
-    	 bias_images[i] = pyfits.getdata(biasfiles[i])
+   		print 'Reading file',i
+    		bias_images[i] = pyfits.getdata(biasfiles[i])
 
 	# Median combine the bias frame
 	masterbias = np.median(bias_images, axis=0)
+	print masterbias.mean()
 
 	# Output the masterbias frame.
 	# Filename hardwired as masterbias.fits
@@ -42,7 +43,7 @@ def makebias(dataref, hdr):
 	# Free the memory!  
 	del bias_images
 
-	return (masterbias)
+	return masterbias
 
 
 # load the image which is displayed in ds9 (from disk!)
@@ -58,7 +59,7 @@ biascor = darkcor = flatcor = False  # set calib flags to False
 
 # Look for these IRAF keywords, if they exist assume that the image has 
 # been calibrated.
-if "zach" in keywordlist:
+if "ZEROCOR" in keywordlist:
 	biascor = True
 if "DARKCOR" in keywordlist:
 	darkcor = True
@@ -78,7 +79,7 @@ if not biascor:
 		dataref = dataref - masterbias
 		print "Bias calibration performed"
 	else:
-		makebias(dataref, hdr)
+		masterbias = makebias(dataref)
 		dataref = dataref - masterbias
 		print "Bias calibration performed"
 
