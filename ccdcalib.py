@@ -1,7 +1,8 @@
 #!/usr/bin/python
 #
 
-import astropy.io.fits as pyfits
+#import astropy.io.fits as pyfits
+import pyfits
 import glob
 import numpy as np
 import sys
@@ -13,7 +14,7 @@ def writefits(data, hdr, filename):
 	
 	hdr_out = hdr.copy(strip=True)	
 	hdu_out = pyfits.PrimaryHDU(data, hdr_out)
-	hdu_out.scale('float32', 'old')	# For compatibility use 32 bits per data pixel
+#	hdu_out.scale(type='float32', bzero=32768, bscale=1)	# For compatibility use 32 bits per data pixel
 	hdu_out.writeto(filename, output_verify='warn', clobber=True)
 	del data, hdr, hdr_out 			# Free some memory
 	return
@@ -48,14 +49,14 @@ def makebias(dataref):
 	masterbias = np.median(bias_images, axis=0)
 	print "Bias Median: ", np.median(masterbias)
 
-	# Constract the BIASCOR keyword and add it to the output bias header
+	# Construct a COMMENT keyword and add it to the output bias header
 	# First, get the header of the first file to use as a header for the output file.
 	hdr_bias = pyfits.getheader(biasfiles[0])
 	hdr_out = hdr_bias.copy(strip=True)
 	# Make a text string with the current date and time
 	biastxt = "Bias frame created by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 	# Constuct the keyword
-	hdr_out['BIASCOR'] = (biastxt)		
+	hdr_out['COMMENT'] = (biastxt)		
 
 	# Output the masterbias frame.
 	# Filename hardwired as masterbias.fits
@@ -105,13 +106,22 @@ def makedark(dataref):
 		masterbias = makebias(dataref)
 		masterdark = masterdark - masterbias
 
+	# Construct a COMMENT keyword and add it to the output dark header
+	# First, get the header of the first file to use as a header for the output file.
+	hdr_dark = pyfits.getheader(darkfiles[0])
+	hdr_out = hdr_dark.copy(strip=True)
+	# Make a text string with the current date and time
+	darktxt = "Dark frame created by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+	# Constuct the keyword
+	hdr_out['COMMENT'] = (darktxt)		
+
 	print "Dark Median: ", np.median(masterdark)
 	# Output the masterdark frame.
 	# Filename hardwired as masterdark.fits
-	writefits(masterdark, 'masterdark.fits')
+	writefits(masterdark, hdr_out, 'masterdark.fits')
   
 	# Free the memory!  
-	del dark_images
+	del dark_images, darkfiles
 
 	return masterdark
 
@@ -169,12 +179,21 @@ def makeflat(dataref):
 	masterflat = masterflat/flatmedian
 	print "Nomalized Flat Median: ", np.median(masterflat)
 
-	# Output the normalized masterflat frame.
+	# Construct a COMMENT keyword and add it to the output flat field header
+	# First, get the header of the first file to use as a header for the output file.
+	hdr_flat = pyfits.getheader(flatfiles[0])
+	hdr_out = hdr_flat.copy(strip=True)
+	# Make a text string with the current date and time
+	flattxt = "Flat field frame created by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+	# Constuct the keyword
+	hdr_out['COMMENT'] = (flattxt)		
+
+	# Output the masterflat frame.
 	# Filename hardwired as masterflat.fits
-	writefits(masterflat, 'masterflat.fits')
-  
+	writefits(masterflat, hdr_out, 'masterflat.fits')
+
 	# Free the memory!  
-	del flat_images
+	del flat_images, flatfiles
 
 	return masterflat
 
@@ -189,8 +208,8 @@ print("... Working ...")
 # (will use standard IRAF keywords for this)
 keywordlist = hdr_data.keys()
 biascor = False  # set calibration flags
-darkcor = True
-flatcor = True
+darkcor = False
+flatcor = False
 
 # Look for these IRAF keywords, if they exist assume that the image has 
 # been calibrated.
@@ -204,7 +223,7 @@ if "FLATCOR" in keywordlist:
 # Do the calibration according to which part is missing. The calibration assumes
 # that the calibration frames masterbias, masterdark and masterflat have already
 # been created and are in the same directory. Their names are hardwired in the
-# code. Zach currently working on creating the the bias, darks and flats automatically.
+# code.
 if not biascor:
 	print "Frame is not Bias calibrated"
 	print "Proceeding with removing the bias..."
@@ -217,6 +236,7 @@ if not biascor:
 		masterbias = makebias(dataref)
 		dataref = dataref - masterbias
 		print "Bias calibration performed!"
+	biastxt = "Bias was subtracted by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 if not darkcor:
 	print "Frame is not Dark calibrated"
@@ -230,6 +250,7 @@ if not darkcor:
 		masterdark = makedark(dataref)
 		dataref = dataref - masterdark
 		print "Dark calibration performed!"
+	darktxt = "Dark was subtracted by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 if not flatcor:
 	print "Frame is not Flat fielded"
@@ -243,9 +264,22 @@ if not flatcor:
 		masterflat = makeflat(dataref)
 		dataref = dataref/masterflat
 		print "Flat fielding performed!"
+	flattxt = "Flatfield applied by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-# Write calibrated file to disk
-writefits(dataref, hdr_data, 'testcalib.fits')
+# Constuct the keywords
+# Update the headers and write calibrated file to disk. 
+hdr_out = hdr_data.copy(strip=True)
+# Make a text string with the current date and time
+if not biascor: 
+	hdr_out['BIASCOR'] = (biastxt)		
+if not darkcor:
+	 hdr_out['DARKCOR'] = (darktxt)
+if not flatcor:
+	 hdr_out['FLATCOR'] = (flattxt)
+
+# Write the output to disk giving the prefix of 'c_' to the calibrated frame.
+writefits(dataref, hdr_out, 'c_'+ref_filename)
+
 print "All Done!"
 
 
