@@ -1,18 +1,27 @@
 #!/usr/bin/python
 #
 
-import pyfits
+import astropy.io.fits as pyfits
 import glob
 import numpy as np
 import sys
 import os
+import datetime
+
+# Write a FITS file with updated headers.
+def writefits(data, hdr, filename):
+	
+	hdr_out = hdr.copy(strip=True)	
+	hdu_out = pyfits.PrimaryHDU(data, hdr_out)
+	hdu_out.scale('float32', 'old')	# For compatibility use 32 bits per data pixel
+	hdu_out.writeto(filename, output_verify='warn', clobber=True)
+	del data, hdr, hdr_out 			# Free some memory
+	return
 
 # Create a Masterbias frame from available bias frames.
 #-------------------------------------------------------------
 def makebias(dataref):
-	# Initialize biasframes dictionary
-	biasframes = {}
-    
+
 	# Search for all bias files in the current directory
 	# Warning: will search for all files with the text 'bias' in their filename.
 	biasfiles = sorted(glob.glob('*bias*'))
@@ -32,28 +41,34 @@ def makebias(dataref):
 
 	# Go round this loop and fill the bias images array.
 	for i in range(0,biasnum):
-   		print 'Reading file',i
+#   		print 'Reading bias file',i
     		bias_images[i] = pyfits.getdata(biasfiles[i])
 
 	# Median combine the bias frame
 	masterbias = np.median(bias_images, axis=0)
 	print "Bias Median: ", np.median(masterbias)
 
+	# Constract the BIASCOR keyword and add it to the output bias header
+	# First, get the header of the first file to use as a header for the output file.
+	hdr_bias = pyfits.getheader(biasfiles[0])
+	hdr_out = hdr_bias.copy(strip=True)
+	# Make a text string with the current date and time
+	biastxt = "Bias frame created by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+	# Constuct the keyword
+	hdr_out['BIASCOR'] = (biastxt)		
+
 	# Output the masterbias frame.
 	# Filename hardwired as masterbias.fits
-	hdu=pyfits.PrimaryHDU(masterbias)
-	hdu.writeto('masterbias.fits')
+	writefits(masterbias, hdr_out, 'masterbias.fits')
 
-	# Free the memory!  
-	del bias_images
+	# Memory Freedom!  
+	del bias_images, biasfiles
 
 	return masterbias
 
 # Create a Masterdark frame from available dark frames.
 #-------------------------------------------------------------
 def makedark(dataref):
-	# Initialize darkframes dictionary
-	darkframes = {}
     
 	# Search for all dark files in the current directory
 	# Warning: will search for all files with the text 'dark' in their filename.
@@ -93,8 +108,7 @@ def makedark(dataref):
 	print "Dark Median: ", np.median(masterdark)
 	# Output the masterdark frame.
 	# Filename hardwired as masterdark.fits
-	hdu=pyfits.PrimaryHDU(masterdark)
-	hdu.writeto('masterdark.fits')
+	writefits(masterdark, 'masterdark.fits')
   
 	# Free the memory!  
 	del dark_images
@@ -104,8 +118,6 @@ def makedark(dataref):
 # Create a Masteflat frame from available flat field frames.
 #-------------------------------------------------------------
 def makeflat(dataref):
-	# Initialize flatframes dictionary
-	flatframes = {}
     
 	# Search for all flat field files in the current directory
 	# Warning: will search for all files with the text 'flat' in their filename.
@@ -144,10 +156,10 @@ def makeflat(dataref):
 
 	# Check to see if a masterdark exists and if it does subract it from the flat field.
 	if os.path.isfile('masterdark.fits'):	
-		biasimg = pyfits.open('masterdark.fits')
+		darkimg = pyfits.open('masterdark.fits')
 		masterdark = darkimg[0].data
 		masterflat = masterflat - masterdark
-	# If the bias does not exist, create it.
+	# If the dark does not exist, create it.
 	else:
 		masterdark = makedark(dataref)
 		masterflat = masterflat - masterdark
@@ -159,8 +171,7 @@ def makeflat(dataref):
 
 	# Output the normalized masterflat frame.
 	# Filename hardwired as masterflat.fits
-	hdu=pyfits.PrimaryHDU(masterflat)
-	hdu.writeto('masterflat.fits')
+	writefits(masterflat, 'masterflat.fits')
   
 	# Free the memory!  
 	del flat_images
@@ -171,13 +182,15 @@ def makeflat(dataref):
 # --------------- MAIN ---------------------------------------
 #ref_filename = win.get("file")
 ref_filename = 'J1753.fits'
-dataref, hdr = pyfits.getdata(ref_filename, header=True)     
+dataref, hdr_data = pyfits.getdata(ref_filename, header=True)     
 print("... Working ...")
 
 # Check if the file has been processed (bias,dark,flat)
 # (will use standard IRAF keywords for this)
-keywordlist = hdr.keys()
-biascor = darkcor = flatcor = False  # set calib flags to False
+keywordlist = hdr_data.keys()
+biascor = False  # set calibration flags
+darkcor = True
+flatcor = True
 
 # Look for these IRAF keywords, if they exist assume that the image has 
 # been calibrated.
@@ -185,7 +198,7 @@ if "ZEROCOR" in keywordlist:
 	biascor = True
 if "DARKCOR" in keywordlist:
 	darkcor = True
-if "zach" in keywordlist:
+if "FLATCOR" in keywordlist:
 	flatcor = True
 
 # Do the calibration according to which part is missing. The calibration assumes
@@ -232,8 +245,7 @@ if not flatcor:
 		print "Flat fielding performed!"
 
 # Write calibrated file to disk
-hdu=pyfits.PrimaryHDU(dataref)
-hdu.writeto('testcalib.fits')
+writefits(dataref, hdr_data, 'testcalib.fits')
 print "All Done!"
 
 
