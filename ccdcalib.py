@@ -238,7 +238,7 @@ def calib(filename, dataref, hdr_data)
 	#ref_filename = win.get("file")
 	#ref_filename = 'J1753.fits'
 	#dataref, hdr_data = pyfits.getdata(ref_filename, header=True)     
-	print("Checking image calibration...")
+	print "Checking image calibration..."
 
 	# Check to see that this is a 2-D image if not stop.
 	if pyfits.getval(ref_filename, 'NAXIS') != 2:
