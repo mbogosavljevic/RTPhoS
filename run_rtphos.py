@@ -16,10 +16,11 @@
 #run_rtphos.py $xpa_method
 
 import pyregion
-import pyfits
+import astropy.io.fits as pyfits
 import pyds9
 import numpy as np
 import os, time
+import ccdcalib
 from   scipy.optimize import curve_fit
 
 ##############################################################################
@@ -256,20 +257,21 @@ def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
                  #CCDfilter   = hdr['FILTER']
                  #print dateobs, timeobs, exposure, CCDfilter
                  ################################################
-                 # now initiate the calibration, offsets and photometry
 
-                 # test if the image has been calibrated previously
-                 ### test_for_calib.py, reduce_image.py ...
+                 # now initiate the calibration, offsets and photometry
+			  calib(filename, data2, hdr)
 
                  # find offsets from dataref
                  thisoffset = zach_offsets(dataref,data2)
                  print "Offsets ", thisoffset
 
                  # create optphot init files
+			  ### This needs to be somewhere else. Target and comp files
+			  ### do not have to be created every time a new file is detected.
                  print("Targets here", targets)
                  t = write_optphot_init(imdir, comparisons, targets)
-                 print "Wrote init files"
-                 ### RUN OPTPHOT ......
+                 print "Wrote Opphot init files"
+                 ### RUN OPPHOT ......
                  #!!!!!!
                  
            before = after
@@ -287,46 +289,9 @@ def run_rtphos(xpapoint):
     dataref, hdr = pyfits.getdata(ref_filename, header=True)     
     print("... Working ...")
 
-    # Check if the file has been processed (bias,dark,flat)
-    # (will use standard IRAF keywords for this)
-    keywordlist = hdr.keys()
-    biascor = darkcor = flatcor = False  # set flags to False
+    # Check image calibration and calibrate if required.   
+    ccdcalib(ref_filename, dataref, hdr)
 
-    # Look for these IRAF keywords, if they exist assume that the image has 
-    # been calibrated.
-    if "ZEROCOR" in keywordlist:
-	print "Bias has been removed"
-	biascor = True
-    if "DARKCOR" in keywordlist:
-	print "Dark has been removed"
-	darkcor = True
-    if "FLATCOR" in keywordlist:
-	print "Flat field has been applied"
-	flatcor = True
-
-    # Do the calibration according to which part is missing. The calibration assumes
-    # that the calibration frames masterbias, masterdark and masterflat have already
-    # been created and are in the same directory. Their names are hardwired in the
-    # code. Zach currently working on creating the the bias, darks and flats automatically.
-    if not biascor:
-	biasimg = pyfits.open('masterbias.fits')
-	biasref = biasimg[0].data
-	dataref = dataref - biasref
-	print "Uncalibrated image: Removed Bias"
-
-    if not darkcor:
-	darkimg = pyfits.open('masterdark.fits')
-	darkref = darkimg[0].data
-	dataref = dataref - darkref
-	print "Uncalibrated image: Removed Dark"
-
-    if not flatcor:
-	flatimg = pyfits.open('masterflat.fits')
-	flatref = flatimg[0].data
-	dataref = dataref / flatref
-	print "Uncalibrated image: Removed Flat"
-
-    ### if not processed, do reduce_image.py (Zach) ...
     ### return the processed filename
     
     # extract path to where other images are expected to be coming in
