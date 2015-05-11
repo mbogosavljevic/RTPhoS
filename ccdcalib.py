@@ -104,7 +104,7 @@ def makebias(dataref, dsize):
 
 # Create a Masterdark frame from available dark frames.
 #-------------------------------------------------------------
-def makedark(dataref):
+def makedark(dataref, dsize):
     
 	# Search for all dark files in the current directory
 	# Warning: will search for all files with the text 'dark' in their filename.
@@ -162,7 +162,7 @@ def makedark(dataref):
 
 # Create a Masteflat frame from available flat field frames.
 #-------------------------------------------------------------
-def makeflat(dataref):
+def makeflat(dataref, dsize):
     
 	# Search for all flat field files in the current directory
 	# Warning: will search for all files with the text 'flat' in their filename.
@@ -233,7 +233,7 @@ def makeflat(dataref):
 	return masterflat
 
 # ---------------CALIBRATION INITIALIZATION-------------------------------------
-def calib(filename, dataref, hdr_data)
+def calib(ref_filename, dataref, hdr_data):
 
 	#ref_filename = win.get("file")
 	#ref_filename = 'J1753.fits'
@@ -322,7 +322,7 @@ def calib(filename, dataref, hdr_data)
 				dataref = dataref/masterbias
 				print "Flat fielding performed!"
 		else:
-			masterflat = makeflat(dataref, dize)
+			masterflat = makeflat(dataref, dsize)
 			dataref = dataref/masterflat
 			print "Flat fielding performed!"
 		flattxt = "Flatfield applied by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
