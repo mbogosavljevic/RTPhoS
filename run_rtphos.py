@@ -21,6 +21,7 @@ import pyds9
 import numpy as np
 import os, time
 import ccdcalib
+import ntpath
 from   scipy.optimize import curve_fit
 
 ##############################################################################
@@ -259,6 +260,7 @@ def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
                  ################################################
 
                  # now initiate the calibration, offsets and photometry
+                 filename=ntpath.basename(filename)
                  ccdcalib.calib(filename, data2, hdr)
 
                  # find offsets from dataref
@@ -290,7 +292,8 @@ def run_rtphos(xpapoint):
     print("... Working ...")
 
     # Check image calibration and calibrate if required.   
-    ccdcalib.calib(ref_filename, dataref, hdr)
+    filename = ntpath.basename(ref_filename)
+    ccdcalib.calib(filename, dataref, hdr)
 
     ### return the processed filename
     
