@@ -1,4 +1,4 @@
 RUN RTPHOS
 *
 menu
-run_rtphos.py $xpa_method
+xterm -sb -sl 2000 -e /home/milan/RTPhoS/run_rtphos.py $xpa_method
