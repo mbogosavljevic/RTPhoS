@@ -42,306 +42,340 @@ import datetime
 # Write a FITS file with updated headers.
 def writefits(data, hdr, filename):
         
-        hdr_out = hdr.copy(strip=True)  
-        hdu_out = pyfits.PrimaryHDU(data, hdr_out)
-#       hdu_out.scale(type='float32', bzero=32768, bscale=1)    # For compatibility use 32 bits per data pixel. This does not seem to work as it rounds up and precision is lost.
-        hdu_out.writeto(filename, output_verify='warn', clobber=True)
-        del data, hdr, hdr_out                  # Free some memory
-        return
+    hdr_out = hdr.copy(strip=True)  
+    hdu_out = pyfits.PrimaryHDU(data, hdr_out)
+#   hdu_out.scale(type='float32', bzero=32768, bscale=1)    # For compatibility use 32 bits per data pixel. This does not seem to work as it rounds up and precision is lost.
+    hdu_out.writeto(filename, output_verify='warn', clobber=True)
+    del data, hdr, hdr_out                  # Free some memory
+    return
 
 # Create a Masterbias frame from available bias frames.
 #-------------------------------------------------------------
 def makebias(dataref, dsize):
 
-        # Search for all bias files in the current directory
-        # Warning: will search for all files with the text 'bias' in their filename.
-        biasfiles = sorted(glob.glob('*bias*'))
-        biasnum = len(biasfiles)        
-        print "Found ", biasnum, "bias frames"
-        if biasnum==0:
-                masterbias=0.0
-                print "WARNING: No bias frames found data will not be bias calibrated!"
-                return masterbias
+    # Search for all bias files in the current directory
+    # Warning: will search for all files with the text 'bias' in their filename.
+    biasfiles = sorted(glob.glob('*bias*'))
+    biasnum = len(biasfiles)        
+    print "Found ", biasnum, "bias frames"
+    if biasnum==0:
+       masterbias=0.0
+       print "WARNING: No bias frames found data will not be bias calibrated!"
+       return masterbias
 
-        # Determine the size of the image based on the size of the first bias file.
-        nx = pyfits.getval(biasfiles[0], 'NAXIS1')
-        ny = pyfits.getval(biasfiles[0], 'NAXIS2')
+    # Determine the size of the image based on the size of the first bias file.
+    nx = pyfits.getval(biasfiles[0], 'NAXIS1')
+    ny = pyfits.getval(biasfiles[0], 'NAXIS2')
 
-        # Set up the array that will hold all the bias images.
-        bias_images = np.ndarray((biasnum,nx,ny),dtype=float)
+    # Set up the array that will hold all the bias images.
+    bias_images = np.ndarray((biasnum,nx,ny),dtype=float)
 
-        # Go round this loop and fill the bias images array.
-        for i in range(0,biasnum):
-#               print 'Reading bias file',i
-                bias_images[i] = pyfits.getdata(biasfiles[i])
+    # Go round this loop and fill the bias images array.
+    for i in range(0,biasnum):
+#       print 'Reading bias file',i
+        bias_images[i] = pyfits.getdata(biasfiles[i])
+        
+    # Median combine the bias frame
+    masterbias = np.median(bias_images, axis=0)
+    print "Bias Median: ", np.median(masterbias)
+    if np.shape(masterbias) != dsize:
+       masterbias=0.0
+       print "WARNING: Bias frames are of different shape than data frames!"
+       print "         Bias calibration has not be performed!"
+       return masterbias
 
-        # Median combine the bias frame
-        masterbias = np.median(bias_images, axis=0)
-        print "Bias Median: ", np.median(masterbias)
-        if np.shape(masterbias) != dsize:
-                masterbias=0.0
-                print "WARNING: Bias frames are of different shape than data frames!"
-                print "         Bias calibration has not be performed!"
-                return masterbias
+    # Construct a COMMENT keyword and add it to the output bias header
+    # First, get the header of the first file to use as a header for the output file.
+    hdr_bias = pyfits.getheader(biasfiles[0])
+    hdr_out = hdr_bias.copy(strip=True)
+    # Make a text string with the current date and time
+    biastxt = "Bias frame created by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Update the output header
+    hdr_out['COMMENT'] = (biastxt)          
 
-        # Construct a COMMENT keyword and add it to the output bias header
-        # First, get the header of the first file to use as a header for the output file.
-        hdr_bias = pyfits.getheader(biasfiles[0])
-        hdr_out = hdr_bias.copy(strip=True)
-        # Make a text string with the current date and time
-        biastxt = "Bias frame created by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        # Update the output header
-        hdr_out['COMMENT'] = (biastxt)          
+    # Output the masterbias frame.
+    # Filename hardwired as masterbias.fits
+    writefits(masterbias, hdr_out, 'masterbias.fits')
 
-        # Output the masterbias frame.
-        # Filename hardwired as masterbias.fits
-        writefits(masterbias, hdr_out, 'masterbias.fits')
+    # Memory Freedom!  
+    del bias_images, biasfiles
 
-        # Memory Freedom!  
-        del bias_images, biasfiles
-
-        return masterbias
+    return masterbias
 
 # Create a Masterdark frame from available dark frames.
 #-------------------------------------------------------------
 def makedark(dataref, dsize):
     
-        # Search for all dark files in the current directory
-        # Warning: will search for all files with the text 'dark' in their filename.
-        darkfiles = sorted(glob.glob('*dark*'))
-        darknum = len(darkfiles)                
-        print "Found ",darknum, "dark frames"
-        if darknum==0:
-                masterdark=0.0
-                print "WARNING: No dark frames found data will not be bias calibrated!"
-                return masterdark
+    # Search for all dark files in the current directory
+    # Warning: will search for all files with the text 'dark' in their filename.
+    darkfiles = sorted(glob.glob('*dark*'))
+    darknum = len(darkfiles)                
+    print "Found ",darknum, "dark frames"
+    if darknum==0:
+       masterdark=0.0
+       print "WARNING: No dark frames found data will not be bias calibrated!"
+       return masterdark
 
-        # Determine the size of the image based on the size of the first dark file.
-        nx = pyfits.getval(darkfiles[0], 'NAXIS1')
-        ny = pyfits.getval(darkfiles[0], 'NAXIS2')
+    # Determine the size of the image based on the size of the first dark file.
+    nx = pyfits.getval(darkfiles[0], 'NAXIS1')
+    ny = pyfits.getval(darkfiles[0], 'NAXIS2')
 
-        # Set up the array that will hold all the dark images.
-        dark_images = np.ndarray((darknum,nx,ny),dtype=float)
+    # Set up the array that will hold all the dark images.
+    dark_images = np.ndarray((darknum,nx,ny),dtype=float)
 
-        # Go round this loop and fill the bias images array.
-        for i in range(0,darknum):
-#               print 'Reading file',i
-                dark_images[i] = pyfits.getdata(darkfiles[i])
+    # Go round this loop and fill the bias images array.
+    for i in range(0,darknum):
+#       print 'Reading file',i
+        dark_images[i] = pyfits.getdata(darkfiles[i])
 
-        # Median combine the dark frame
-        masterdark = np.median(dark_images, axis=0)
+    # Median combine the dark frame
+    masterdark = np.median(dark_images, axis=0)
 
-        # Check to see if a bias exists and if it does subract it from the dark.
-        if os.path.isfile('masterbias.fits'):   
-                biasimg = pyfits.open('masterbias.fits')
-                masterbias = biasimg[0].data
-                masterdark = masterdark - masterbias
-        # If the bias does not exist, create it.
-        else:
-                masterbias = makebias(dataref)
-                masterdark = masterdark - masterbias
+    # Check to see if a bias exists and if it does subract it from the dark.
+    if os.path.isfile('masterbias.fits'):   
+       biasimg = pyfits.open('masterbias.fits')
+       masterbias = biasimg[0].data
+       masterdark = masterdark - masterbias
+    # If the bias does not exist, create it.
+    else:
+       masterbias = makebias(dataref)
+       masterdark = masterdark - masterbias
 
-        # Construct a COMMENT keyword and add it to the output dark header
-        # First, get the header of the first file to use as a header for the output file.
-        hdr_dark = pyfits.getheader(darkfiles[0])
-        hdr_out = hdr_dark.copy(strip=True)
-        # Make a text string with the current date and time
-        darktxt = "Dark frame created by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        # Update the output header
-        hdr_out['COMMENT'] = (darktxt)          
+    # Construct a COMMENT keyword and add it to the output dark header
+    # First, get the header of the first file to use as a header for the output file.
+    hdr_dark = pyfits.getheader(darkfiles[0])
+    hdr_out = hdr_dark.copy(strip=True)
+    # Make a text string with the current date and time
+    darktxt = "Dark frame created by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Update the output header
+    hdr_out['COMMENT'] = (darktxt)          
 
-        print "Dark Median: ", np.median(masterdark)
-        # Output the masterdark frame.
-        # Filename hardwired as masterdark.fits
-        writefits(masterdark, hdr_out, 'masterdark.fits')
+    print "Dark Median: ", np.median(masterdark)
+    # Output the masterdark frame.
+    # Filename hardwired as masterdark.fits
+    writefits(masterdark, hdr_out, 'masterdark.fits')
   
-        # Free the memory!  
-        del dark_images, darkfiles
+    # Free the memory!  
+    del dark_images, darkfiles
 
-        return masterdark
+    return masterdark
 
 # Create a Masteflat frame from available flat field frames.
 #-------------------------------------------------------------
 def makeflat(dataref, dsize):
     
-        # Search for all flat field files in the current directory
-        # Warning: will search for all files with the text 'flat' in their filename.
-        flatfiles = sorted(glob.glob('*flat*'))
-        flatnum = len(flatfiles)                
-        print "Found ",flatnum, "flat frames"
-        if flatnum==0:
-                masterflat=1.0
-                print "WARNING: No flat field frames found data will not be flat fielded!"
-                return masterflat
+    # Search for all flat field files in the current directory
+    # Warning: will search for all files with the text 'flat' in their filename.
+    flatfiles = sorted(glob.glob('*flat*'))
+    flatnum = len(flatfiles)                
+    print "Found ",flatnum, "flat frames"
+    if flatnum==0:
+       masterflat=1.0
+       print "WARNING: No flat field frames found data will not be flat fielded!"
+       return masterflat
 
-        # Determine the size of the image based on the size of the first flat field file.
-        nx = pyfits.getval(flatfiles[0], 'NAXIS1')
-        ny = pyfits.getval(flatfiles[0], 'NAXIS2')
+    # Determine the size of the image based on the size of the first flat field file.
+    nx = pyfits.getval(flatfiles[0], 'NAXIS1')
+    ny = pyfits.getval(flatfiles[0], 'NAXIS2')
 
-        # Set up the array that will hold all the flat field images.
-        flat_images = np.ndarray((flatnum,nx,ny),dtype=float)
+    # Set up the array that will hold all the flat field images.
+    flat_images = np.ndarray((flatnum,nx,ny),dtype=float)
 
-        # Go round this loop and fill the flat field images array.
-        for i in range(0,flatnum):
-#               print 'Reading file',i
-                flat_images[i] = pyfits.getdata(flatfiles[i])
+    # Go round this loop and fill the flat field images array.
+    for i in range(0,flatnum):
+#       print 'Reading file',i
+        flat_images[i] = pyfits.getdata(flatfiles[i])
 
-        # Median combine the flat field frames
-        masterflat = np.median(flat_images, axis=0)
+    # Median combine the flat field frames
+    masterflat = np.median(flat_images, axis=0)
 
-        # Check to see if a masterbias exists and if it does subract it from the flat field.
-        if os.path.isfile('masterbias.fits'):   
-                biasimg = pyfits.open('masterbias.fits')
-                masterbias = biasimg[0].data
-                masterflat = masterflat - masterbias
-        # If the bias does not exist, create it.
-        else:
-                masterbias = makebias(dataref)
-                masterflat = masterflat - masterbias
+    # Check to see if a masterbias exists and if it does subract it from the flat field.
+    if os.path.isfile('masterbias.fits'):   
+       biasimg = pyfits.open('masterbias.fits')
+       masterbias = biasimg[0].data
+       masterflat = masterflat - masterbias
+    # If the bias does not exist, create it.
+    else:
+       masterbias = makebias(dataref)
+       masterflat = masterflat - masterbias
 
-        # Check to see if a masterdark exists and if it does subract it from the flat field.
-        if os.path.isfile('masterdark.fits'):   
-                darkimg = pyfits.open('masterdark.fits')
-                masterdark = darkimg[0].data
-                masterflat = masterflat - masterdark
-        # If the dark does not exist, create it.
-        else:
-                masterdark = makedark(dataref)
-                masterflat = masterflat - masterdark
+    # Check to see if a masterdark exists and if it does subract it from the flat field.
+    if os.path.isfile('masterdark.fits'):   
+       darkimg = pyfits.open('masterdark.fits')
+       masterdark = darkimg[0].data
+       masterflat = masterflat - masterdark
+    # If the dark does not exist, create it.
+    else:
+       masterdark = makedark(dataref)
+       masterflat = masterflat - masterdark
 
-        flatmedian = np.median(masterflat)
-        print "Flat Median: ", np.median(masterflat)
-        masterflat = masterflat/flatmedian
-        print "Nomalized Flat Median: ", np.median(masterflat)
+    flatmedian = np.median(masterflat)
+    print "Flat Median: ", np.median(masterflat)
+    masterflat = masterflat/flatmedian
+    print "Nomalized Flat Median: ", np.median(masterflat)
 
-        # Construct a COMMENT keyword and add it to the output flat field header
-        # First, get the header of the first file to use as a header for the output file.
-        hdr_flat = pyfits.getheader(flatfiles[0])
-        hdr_out = hdr_flat.copy(strip=True)
-        # Make a text string with the current date and time
-        flattxt = "Flat field frame created by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        # Update the output header
-        hdr_out['COMMENT'] = (flattxt)          
+    # Construct a COMMENT keyword and add it to the output flat field header
+    # First, get the header of the first file to use as a header for the output file.
+    hdr_flat = pyfits.getheader(flatfiles[0])
+    hdr_out = hdr_flat.copy(strip=True)
+    # Make a text string with the current date and time
+    flattxt = "Flat field frame created by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Update the output header
+    hdr_out['COMMENT'] = (flattxt)          
 
-        # Output the masterflat frame.
-        # Filename hardwired as masterflat.fits
-        writefits(masterflat, hdr_out, 'masterflat.fits')
+    # Output the masterflat frame.
+    # Filename hardwired as masterflat.fits
+    writefits(masterflat, hdr_out, 'masterflat.fits')
 
-        # Free the memory!  
-        del flat_images, flatfiles
+    # Free the memory!  
+    del flat_images, flatfiles
 
-        return masterflat
+    return masterflat
 
 # ---------------CALIBRATION INITIALIZATION-------------------------------------
 def calib(ref_filename, dataref, hdr_data):
 
-        #ref_filename = win.get("file")
-        #ref_filename = 'J1753.fits'
-        #dataref, hdr_data = pyfits.getdata(ref_filename, header=True)     
-        print "Checking image calibration..."
+    print "Checking image calibration..."
 
-        # Check to see that this is a 2-D image if not stop.
-        if pyfits.getval(ref_filename, 'NAXIS') != 2:
-                print "WARNING: Not a 2D image file! Proceeding to next frame..."
-                return
+    # Check to see that this is a 2-D image if not stop.
+    if hdr_data['NAXIS'] != 2:
+       print "WARNING: Not a 2D image file! Proceeding to next frame..."
+       return    
 
-        # Check if the file has been processed (bias,dark,flat)
-        # (will use standard IRAF keywords for this)
-        keywordlist = hdr_data.keys()
+    # Get the size of the image.
+    dsize = np.shape(dataref)
 
-        # Get the size of the image.
-        dsize = np.shape(dataref)
+    # Initialize datacheck dictionary
+    datacheck = {}           
 
-        # Set calibration flags
-        biascor = False  
-        darkcor = False
-        flatcor = False
+    # Construct a list of all the header keywords.
+    keywordlist = hdr_data.keys()    
 
-        # Look for these IRAF keywords, if they exist assume that the image has 
-        # been calibrated.
-        if "ZEROCOR" in keywordlist:
-                biascor = True
-        if "DARKCOR" in keywordlist:
-                darkcor = True
-        if "FLATCOR" in keywordlist:
-                flatcor = True
+    # Get the filter type from the header.
+    if "FILTER" in keywordlist:
+       datacheck['FILTER'] = hdr_data['FILTER']
+    else:
+       print "WARNING: Filter header not found!"
+       print "         Calibration might not be correct"
 
-        # Do the calibration according to which part is missing. The calibration assumes
-        # that the calibration frames masterbias, masterdark and masterflat have already
-        # been created and are in the same directory. Their names are hardwired in the
-        # code. If no calibration frames are found then they are made using any available
-        # calibration files.
-        if not biascor:
-           print "Frame is not Bias calibrated"
-           print "Proceeding with removing the bias..."
-           if os.path.isfile('masterbias.fits'):   
-                biasimg = pyfits.open('masterbias.fits')
-                masterbias = biasimg[0].data
-                if np.shape(masterbias) != dsize:
-                     masterbias=0.0
-                     print "WARNING: Bias frames are of different size than data frames!"
-                     print "         Bias calibration has not be performed!"
-                else:
-                     dataref = dataref - masterbias
-                     print "Bias calibration performed!"
-           else:
-                masterbias = makebias(dataref, dsize)
-                dataref = dataref - masterbias
-           if masterbias !=0.0:
-                biastxt = "Bias was subtracted by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Get the integration time from the header
+    if "EXPOSURE" in keywordlist:    
+       datacheck['EXPOSURE'] = hdr_data['EXPOSURE']
+    elif "EXPTIME" in keywordlist:
+       datacheck['EXPOSURE'] = hdr_data['EXPTIME']         
+    else:
+       print "WARNING: No exposure header found."
+       print "         Calibration might not be correct!"
 
-        if not darkcor:
-           print "Frame is not Dark calibrated"
-           print "Proceeding with removing the dark..."
-           if os.path.isfile('masterdark.fits'):   
-                darkimg = pyfits.open('masterdark.fits')
-                masterdark = darkimg[0].data
-                if np.shape(masterdark) != dsize:
-                     masterdark=0.0
-                     print "WARNING: Dark frames are of different size than data frames!"
-                     print "         Dark calibration has not be performed!"
-                else:
-                     dataref = dataref - masterdark
-                     print "Bias calibration performed!"
-           else:
-                masterdark = makedark(dataref, dsize)
-                dataref = dataref - masterdark
-                print "Dark calibration performed!"
-           if masterdark !=0.0:
-                darktxt = "Dark was subtracted by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print datacheck
 
-        if not flatcor:
-           print "Frame is not Flat fielded"
-           print "Proceeding with Flat fielding..."
-           if os.path.isfile('masterflat.fits'):   
-                flatimg = pyfits.open('masterflat.fits')
-                masterflat = flatimg[0].data
-                if np.shape(masterflat) != dsize:
-                     masterflat=1.0
-                     print "WARNING: Masterflat frame is of different size than data frames!"
-                     print "         Flat fielding has not be performed!"
-                else:
-                     dataref = dataref/masterbias
-                     print "Flat fielding performed!"
-           else:
-                masterflat = makeflat(dataref, dsize)
-                dataref = dataref/masterflat
-                print "Flat fielding performed!"
-           if masterflat !=1.0:
-               flattxt = "Flatfield applied by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Set calibration flags
+    biascor = False 
+    darkcor = True
+    flatcor = True
 
-        # Update the headers. 
-        hdr_out = hdr_data.copy(strip=True)
-        if masterbias !=0.0: 
-                hdr_out['BIASCOR'] = (biastxt)          
-        if masterdark !=0.0:
-                 hdr_out['DARKCOR'] = (darktxt)
-        if masterflat !=1.0:
-                 hdr_out['FLATCOR'] = (flattxt)
-        # Write the output to disk giving the prefix of 'c_' to the calibrated frame.
-        writefits(dataref, hdr_out, 'c_'+ref_filename)
+    # Look for these IRAF keywords, if they exist assume that the image has 
+    # been calibrated.
+    if "ZEROCOR" in keywordlist:
+       biascor = True
+    if "DARKCOR" in keywordlist:
+       darkcor = True
+    if "FLATCOR" in keywordlist:
+       flatcor = True
 
-        return
+    # If all keywords exist assume that the frame is calibrated and return to 
+    # the main program.
+    if biascor and darkcor and flatcor == True:
+       return
 
-        
+    # Do the calibration according to which part is missing. The calibration assumes
+    # that the calibration frames masterbias, masterdark and masterflat have already
+    # been created and are in the same directory. Their names are hardwired in the
+    # code. If no calibration frames are found then they are made using any available
+    # calibration files.
+    biascal = False
+    if not biascor:
+       print "Frame is not Bias calibrated"
+       print "Proceeding with removing the bias..."
+       if os.path.isfile('masterbias.fits'):   
+          biasimg = pyfits.open('masterbias.fits')
+          masterbias = biasimg[0].data
+          if np.shape(masterbias) != dsize:
+             masterbias=0.0
+             print "WARNING: Bias frames are of different size than data frames!"
+             print "         Bias calibration has not be performed!"
+          else:
+             dataref = dataref - masterbias
+             print "Bias calibration performed!"
+             biascal = True
+       else:
+          masterbias = makebias(dataref, dsize)
+          dataref = dataref - masterbias
+       if masterbias.all() !=0.0:
+             biascal = True
+             biastxt = "Bias was subtracted by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    darkcal = False
+    if not darkcor:
+       print "Frame is not Dark calibrated"
+       print "Proceeding with removing the dark..."
+       if os.path.isfile('masterdark.fits'):   
+          darkimg = pyfits.open('masterdark.fits')
+          masterdark = darkimg[0].data
+          if np.shape(masterdark) != dsize:
+             masterdark=0.0
+             print "WARNING: Dark frames are of different size than data frames!"
+             print "         Dark calibration has not be performed!"
+          else:
+             dataref = dataref - masterdark
+             print "Bias calibration performed!"
+             darkcal = True
+       else:
+          masterdark = makedark(dataref, dsize)
+          dataref = dataref - masterdark
+          print "Dark calibration performed!"
+       if masterdark.all() !=0.0:
+          darkcal = True
+          darktxt = "Dark was subtracted by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    flatcal = False
+    if not flatcor:
+       print "Frame is not Flat fielded"
+       print "Proceeding with Flat fielding..."
+       if os.path.isfile('masterflat.fits'):   
+          flatimg = pyfits.open('masterflat.fits')
+          masterflat = flatimg[0].data
+          if np.shape(masterflat) != dsize:
+             masterflat=1.0
+             print "WARNING: Masterflat frame is of different size than data frames!"
+             print "         Flat fielding has not be performed!"
+          else:
+             dataref = dataref/masterbias
+             print "Flat fielding performed!"
+             flatcal = True
+       else:
+          masterflat = makeflat(dataref, dsize)
+          dataref = dataref/masterflat
+          print "Flat fielding performed!"
+       if masterflat.all() !=1.0:
+          flatcal = True
+          flattxt = "Flatfield applied by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Update the headers. 
+    hdr_out = hdr_data.copy(strip=True)
+    if biascal: hdr_out['BIASCOR'] = (biastxt)          
+    if darkcal: hdr_out['DARKCOR'] = (darktxt)
+    if flatcal: hdr_out['FLATCOR'] = (flattxt)
+    # Write the output to disk giving the prefix of 'c_' to the calibrated frame.
+    writefits(dataref, hdr_out, 'c_'+ref_filename)
+
+    return   
+
+if __name__ == "__main__":
+
+#  For testing
+   ref_filename = 'J1753.fits'
+   dataref, hdr_data = pyfits.getdata(ref_filename, header=True)     
+   calib(ref_filename, dataref, hdr_data)
+   print "Calibration Done!"
 
