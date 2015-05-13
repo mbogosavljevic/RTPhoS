@@ -39,6 +39,54 @@ import sys
 import os
 import datetime
 
+
+# Make a dictionary of selected header keywords and their values.
+def makechecklist(hdr):
+
+    checklist = {}
+    keylist = hdr.keys()
+
+    # Get the image size header values
+    checklist['NAXIS1'] = hdr['NAXIS1']
+    checklist['NAXIS2'] = hdr['NAXIS2']
+
+    # Get the filter type from the header
+    if "FILTER" in keylist: checklist['FILTER'] = hdr['FILTER']
+
+    # Get the integration time from the header
+    if "EXPOSURE" in keylist:  
+       checklist['EXPOSURE'] = hdr['EXPOSURE']
+    elif "EXPTIME" in keylist: 
+       checklist['EXPOSURE'] = hdr['EXPTIME']         
+
+    # Get the Date from the header
+    if "DATE-OBS" in keylist: checklist['DATE'] = hdr['DATE-OBS']
+
+    return checklist
+
+
+
+# Given a keyword this function will return the value from a FITS header
+def gethdrval(header,key):
+
+    value=header[key]
+
+    return value
+
+# Make a list of fits filenames and makes a list of header values
+def makelist(filenames, key):
+
+    listout=[]
+    for i in range(len(filenames)):
+        dum=pyfits.getheader(filenames[i])
+        dummy=gethdrval(dum,key)
+        listout.append(dummy)
+
+    del dum, dummy
+
+    return listout
+
+
 # Write a FITS file with updated headers.
 def writefits(data, hdr, filename):
         
@@ -49,6 +97,8 @@ def writefits(data, hdr, filename):
     del data, hdr, hdr_out                  # Free some memory
     return
 
+
+
 # Create a Masterbias frame from available bias frames.
 #-------------------------------------------------------------
 def makebias(dataref, dsize):
@@ -56,33 +106,85 @@ def makebias(dataref, dsize):
     # Search for all bias files in the current directory
     # Warning: will search for all files with the text 'bias' in their filename.
     biasfiles = sorted(glob.glob('*bias*'))
-    biasnum = len(biasfiles)        
+
+    # Check to see that all selected files have a fits file name extension
+    biasfiles = [f for f in biasfiles if f.endswith('.fits') or f.endswith('.fit')]
+    biasnum = len(biasfiles)     
     print "Found ", biasnum, "bias frames"
     if biasnum==0:
        masterbias=0.0
        print "WARNING: No bias frames found data will not be bias calibrated!"
        return masterbias
 
-    # Determine the size of the image based on the size of the first bias file.
-    nx = pyfits.getval(biasfiles[0], 'NAXIS1')
-    ny = pyfits.getval(biasfiles[0], 'NAXIS2')
+    # Check to see that all the bias frames are of the same size.
+    # First make a list of all the bias frame sizes that are available
+    bsizes=[]
+    goodbiasfiles=[]
+    for i in range(biasnum):
+        dum = pyfits.getdata(biasfiles[i])
+        dummy = np.shape(dum)
+        bsizes.append(dummy)
+        if dummy == dsize:
+           goodbiasfiles.append(biasfiles[i]) 
+    
+    del dum, dummy # Memory freedom!
 
-    # Set up the array that will hold all the bias images.
-    bias_images = np.ndarray((biasnum,nx,ny),dtype=float)
+    # Convert size tuples to strings so that np.unique will see them as pairs.
+    bsizes = map(str, bsizes)
+    #print bsizes
 
-    # Go round this loop and fill the bias images array.
-    for i in range(0,biasnum):
-#       print 'Reading bias file',i
-        bias_images[i] = pyfits.getdata(biasfiles[i])
-        
-    # Median combine the bias frame
-    masterbias = np.median(bias_images, axis=0)
-    print "Bias Median: ", np.median(masterbias)
-    if np.shape(masterbias) != dsize:
+    # Next find how many unique size groups there are.
+    uniquevals = np.unique(bsizes)
+    biasvers = np.size(uniquevals)
+    
+    # If more than 1 size available inform the user.
+    if biasvers>1:
+       print "Found bias frames of ",biasvers," size(s): ",uniquevals
+
+    # Count how many frames found with the same size as the data
+    matches = len(goodbiasfiles)
+    print "Number of matches: ", matches
+
+    # If no bias frames are found with the same size as the data then exit
+    # This should be made to check if the bias frames found are larger and
+    # if they are the program should proceed with making a masterbias frame
+    # and then crop it (if the header keywords exist)
+    if matches == 0:
        masterbias=0.0
        print "WARNING: Bias frames are of different shape than data frames!"
        print "         Bias calibration has not be performed!"
        return masterbias
+
+    # Make lists of all NAXIS1 and NAXIS2 header values.
+    # nx1 = makelist(biasfiles,'NAXIS1')
+    # nx2 = makelist(biasfiles,'NAXIS2')
+
+
+    #testsize = np.unique(naxis1)
+    #print testsize, np.size(testsize)
+
+    #biasnx1 = dict(zip(biasfiles,naxis1))
+
+    #print biasnx1
+
+    # Set up the array that will hold all the bias images.
+    bias_images = np.ndarray((biasnum,dsize[0],dsize[1]),dtype=float)
+
+
+    # Go round this loop and fill the bias images array.
+    for i in range(0,matches):
+#       print 'Reading bias file',i
+        bias_images[i] = pyfits.getdata(goodbiasfiles[i])
+
+    # If only one file is found skip the median routine and set it as the
+    # masterbias files.
+    if matches == 1:
+       masterbias = pyfits.getdata(goodbiasfiles[0])
+    else:
+       # Median combine the bias frame
+       masterbias = np.median(bias_images, axis=0)
+
+       print "Bias Median: ", np.median(masterbias)
 
     # Construct a COMMENT keyword and add it to the output bias header
     # First, get the header of the first file to use as a header for the output file.
@@ -101,6 +203,8 @@ def makebias(dataref, dsize):
     del bias_images, biasfiles
 
     return masterbias
+
+
 
 # Create a Masterdark frame from available dark frames.
 #-------------------------------------------------------------
@@ -159,6 +263,8 @@ def makedark(dataref, dsize):
     del dark_images, darkfiles
 
     return masterdark
+
+
 
 # Create a Masteflat frame from available flat field frames.
 #-------------------------------------------------------------
@@ -232,6 +338,8 @@ def makeflat(dataref, dsize):
 
     return masterflat
 
+
+
 # ---------------CALIBRATION INITIALIZATION-------------------------------------
 def calib(ref_filename, dataref, hdr_data):
 
@@ -245,29 +353,11 @@ def calib(ref_filename, dataref, hdr_data):
     # Get the size of the image.
     dsize = np.shape(dataref)
 
-    # Initialize datacheck dictionary
-    datacheck = {}           
+    # Create the list of headers to check for file compatibility.
+    datacheck = makechecklist(hdr_data)
 
     # Construct a list of all the header keywords.
     keywordlist = hdr_data.keys()    
-
-    # Get the filter type from the header.
-    if "FILTER" in keywordlist:
-       datacheck['FILTER'] = hdr_data['FILTER']
-    else:
-       print "WARNING: Filter header not found!"
-       print "         Calibration might not be correct"
-
-    # Get the integration time from the header
-    if "EXPOSURE" in keywordlist:    
-       datacheck['EXPOSURE'] = hdr_data['EXPOSURE']
-    elif "EXPTIME" in keywordlist:
-       datacheck['EXPOSURE'] = hdr_data['EXPTIME']         
-    else:
-       print "WARNING: No exposure header found."
-       print "         Calibration might not be correct!"
-
-    print datacheck
 
     # Set calibration flags
     biascor = False 
