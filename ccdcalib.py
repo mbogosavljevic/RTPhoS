@@ -35,7 +35,6 @@ bad pixels.
 import astropy.io.fits as pyfits
 import glob
 import numpy as np
-import sys
 import os
 import datetime
 
@@ -87,9 +86,24 @@ def makelist(filenames, key):
     return listout
 
 
+#===============================================================================
 # Write a FITS file with updated headers.
+#===============================================================================
 def writefits(data, hdr, filename):
-        
+
+# ------------------------------------------------------------------------------
+# Inputs are:
+# data      - Type: Array   - 2-D image data to be written to a FITS file.
+# hdr       - Type: Class   - Header class created by astropy.io.fits
+# filename  - Type: String  - Output filename.
+
+# Outputs are:
+# Returns nothing. Writes a file to disk.
+
+# Modules required:
+# - astropy.io.fits
+# ------------------------------------------------------------------------------       
+
     hdr_out = hdr.copy(strip=True)  
     hdu_out = pyfits.PrimaryHDU(data, hdr_out)
 #   hdu_out.scale(type='float32', bzero=32768, bscale=1)    # For compatibility use 32 bits per data pixel. This does not seem to work as it rounds up and precision is lost.
@@ -97,15 +111,29 @@ def writefits(data, hdr, filename):
     del data, hdr, hdr_out                  # Free some memory
     return
 
+
 #===============================================================================
 # Median combine images read from a file list and writes them to an output file.
 #===============================================================================
 def mediancomb(filenamesin, filenameout, hdrtext):
 
-# Function arguments are:
+# ------------------------------------------------------------------------------
+# Inputs are:
 # filenamesin   - Type: List    - List of filenames for data input
 # filenamesout  - Type: List    - List of filenames for writing output files
 # hdrtext       - Type: String  - String to construct a COMMENT keyword in the output files.
+
+# Outputs are:
+# median_image  - Type: Array   - A 2-D image array
+
+# This routine depends on:
+# writefits     - to write output files.
+
+# Modules required:
+# - astropy.io.fits
+# - numpy
+# - datetime
+# ------------------------------------------------------------------------------
 
     # Count the number of filenames
     filenum = len(filenamesin)
@@ -148,18 +176,58 @@ def mediancomb(filenamesin, filenameout, hdrtext):
     return median_image
 
 
-# Create a Masterbias frame from available bias frames.
-#-------------------------------------------------------------
-def makebias(dataref, dsize):
+#===============================================================================
+# Select FITS files based on a filename wildcard.
+#===============================================================================
+def makefilelist(wildcard):
 
-    # Search for all bias files in the current directory
-    # Warning: will search for all files with the text 'bias' in their filename.
-    biasfiles = sorted(glob.glob('*bias*'))
+# ------------------------------------------------------------------------------
+# Input arguments are:
+# wildcard   - Type: String    - A wildcard string to search for files.
+
+# Output arguments are:
+# filelist   - Type: List      - A list of filenames
+
+# Modules required:
+# - glob
+# ------------------------------------------------------------------------------
+
+    # Search for all files in the current directory that satisfy the wildcard provided
+    filelist = sorted(glob.glob(wildcard))
 
     # Discard the files without a .fit or .fits extension and count what is left.
-    biasfiles = [f for f in biasfiles if f.endswith('.fits') or f.endswith('.fit')]
-    biasnum = len(biasfiles)     
-    print "Found ", biasnum, "bias frames"
+    filelist = [f for f in filelist if f.endswith('.fits') or f.endswith('.fit')]
+    filenum = len(filelist)     
+    print "Found ", filenum, wildcard, "frames!"
+
+    return filelist
+
+
+#===============================================================================
+# Create a Masterbias frame from available bias frames.
+#===============================================================================
+def makebias(dsize):
+
+# ------------------------------------------------------------------------------
+# Inputs:
+# dsize      - Type: Tuple    - The size of the original image data array
+
+# Outputs:
+# masterbias - Type: Array   - A 2-D image array 
+
+# This routine depends on:
+# mediancomb - Median combine images read from a list of files.
+
+# Modules required:
+# - glob
+# - astropy.io.fits
+# - numpy
+# ------------------------------------------------------------------------------
+
+    # Get all the available bias files into a file list.
+    biasfiles = makefilelist('*bias*')
+    biasnum = len(biasfiles)
+
     if biasnum==0:
        masterbias=0.0
        print "WARNING: No bias frames found data will not be bias calibrated!"
@@ -225,12 +293,12 @@ def makebias(dataref, dsize):
     # Create the median image.
     masterbias = mediancomb(biasfiles, outfilename, biastxt)
 
-    # For now create a masterbias based on matching only the size of the image.
+    # For now, create a masterbias based on matching only the size of the image.
     # In the future we need to modify the code so that if the bias frames found
     # are larger than the incoming image the code will look for header keywords
     # that will allow for cropping the bias image to match the data image.
     # The code commented out below can help in this process by creating
-    # several bias frames for every different size found.
+    # several masterbias frames for every different frame size found.
 
     # Make a list of output filenames.
 #    filesout = []
@@ -253,16 +321,14 @@ def makebias(dataref, dsize):
     return masterbias
 
 
-
+#===============================================================================
 # Create a Masterdark frame from available dark frames.
-#-------------------------------------------------------------
-def makedark(dataref, dsize):
+#===============================================================================
+def makedark(dsize):
     
-    # Search for all dark files in the current directory
-    # Warning: will search for all files with the text 'dark' in their filename.
-    darkfiles = sorted(glob.glob('*dark*'))
-    darknum = len(darkfiles)                
-    print "Found ",darknum, "dark frames"
+    # Get all the available dark files into a file list.
+    darkfiles = makefilelist('*dark*')
+    darknum = len(darkfiles)
     if darknum==0:
        masterdark=0.0
        print "WARNING: No dark frames found data will not be bias calibrated!"
@@ -453,7 +519,7 @@ def calib(ref_filename, dataref, hdr_data):
              print "Bias calibration performed!"
              biascal = True
        else:
-          masterbias = makebias(dataref, dsize)
+          masterbias = makebias(dsize)
           dataref = dataref - masterbias
        if masterbias.all() !=0.0:
              biascal = True
