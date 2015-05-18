@@ -11,17 +11,15 @@ The calibrated image is saved with the prefix 'c_' in the same directory.
 
 Things that need to be done to further improve the calibration process:
 
-- Check to see that all calibration files are of the same shape (Currently this 
-is done only for the bias frames)
-
-- Check to see that the flats correspond to the same filter as the data. If the
-directory contains flats for more than one filter then create masterflats for each
-filter, determine which one corresponds to the data and apply it.
+- If flats of the same filter are found but they have different exposures calculate
+each flat seperately and then combine them.
 
 - Find out if there are any pixels with zero value in the flats and flag them as
 bad pixels.
 
 - Include the cosmic ray detection script cosmics to clean the image.
+
+- Put in various other checks such as observation epoch.
 
 """
 import astropy.io.fits as pyfits
@@ -29,10 +27,23 @@ import glob
 import numpy as np
 import os
 import datetime
-import sys
+#import sys
 
+#===============================================================================
 # Make a dictionary of selected header keywords and their values.
+#===============================================================================
 def makechecklist(hdr):
+
+# ------------------------------------------------------------------------------
+# Inputs are:
+# hdr       - Type: Class      - Header class created by astropy.io.fits
+
+# Outputs are:
+# checklist - Type: Dictionary - Dictionary of selected keywords
+
+# Modules required:
+# - astropy.io.fits
+# ------------------------------------------------------------------------------       
 
     checklist = {}
     keylist = hdr.keys()
@@ -59,27 +70,6 @@ def makechecklist(hdr):
 
     return checklist
 
-
-
-# Given a keyword this function will return the value from a FITS header
-def gethdrval(header,key):
-
-    value=header[key]
-
-    return value
-
-# Make a list of fits filenames and makes a list of header values
-def makelist(filenames, key):
-
-    listout=[]
-    for i in range(len(filenames)):
-        dum=pyfits.getheader(filenames[i])
-        dummy=gethdrval(dum,key)
-        listout.append(dummy)
-
-    del dum, dummy
-
-    return listout
 
 
 #===============================================================================
@@ -292,10 +282,10 @@ def makebias(dsize):
 
 # ------------------------------------------------------------------------------
 # Inputs:
-# dsize      - Type: Tuple    - The size of the original image data array
+# dsize    - Type: Tuple - The size of the original image data array
 
 # Outputs:
-# masterbias - Type: Array   - A 2-D image array 
+# bias     - Type: Tuple - Tuple containing a boolean and the bias image array 
 
 # This routine depends on:
 # mediancomb - Median combine images read from a list of files.
@@ -359,14 +349,15 @@ def makedark(dsize, exposure):
     
 # ------------------------------------------------------------------------------
 # Inputs:
-# dsize      - Type: Tuple    - The size of the original image data array
-# exposure   - Type: String   - The exposure of the image data
+# dsize    - Type: Tuple  - The size of the original image data array
+# exposure - Type: String - The exposure of the image data
 
 # Outputs:
-# masterdark - Type: Array   - A 2-D image array 
+# dark     - Type: Tuple  - Tuple containing a boolean and the dark image array
 
 # This routine depends on:
 # mediancomb - Median combine images read from a list of files.
+# masterbias - Routine to create a masterbias frame
 # writefits  - Write the masterdark to a file.
 
 # Modules required:
@@ -510,7 +501,27 @@ def makedark(dsize, exposure):
 # Create a Masterflat frame from available flat frames.
 #===============================================================================
 def makeflat(dsize, obsfilter):
-    
+  
+# ------------------------------------------------------------------------------
+# Inputs:
+# dsize     - Type: Tuple  - The size of the original image data array
+# obsfilter - Type: String - The observation filter
+
+# Outputs:
+# flat      - Type: Tuple  - Tuple containing a boolean and the flat image array
+
+# This routine depends on:
+# mediancomb - Median combine images read from a list of files.
+# masterbias - Routine to create a masterbias frame.
+# masterdark - Routine to create a masterdark frame.
+# writefits  - Write the masterdark to a file.
+
+# Modules required:
+# - astropy.io.fits
+# - numpy
+# - datetime
+# ------------------------------------------------------------------------------
+  
     # Get all the available flat files into a file list.
     flatfiles = makefilelist('*flat*')
     flatnum = len(flatfiles)
@@ -691,9 +702,33 @@ def makeflat(dsize, obsfilter):
     return flat
 
 
-
-# ---------------CALIBRATION INITIALIZATION-------------------------------------
+#===============================================================================
+# ----------------------CALIBRATION INITIALIZATION------------------------------
+#===============================================================================
 def calib(ref_filename, dataref, hdr_data):
+
+# ------------------------------------------------------------------------------
+# Inputs:
+# ref_filename - Type: String - The image data filename
+# dataref      - Type: Array  - The image 2-D data array
+# hdr_data     - Type: Class  - The image header
+
+# Outputs:
+# Calibrates an image are creates calibration master frames and writes the
+# calibrated image to disk.
+
+# This routine depends on:
+# makechecklist - Routine that makes a dictionary of selected keywords and their values.
+# masterbias - Routine to create a masterbias frame.
+# masterdark - Routine to create a masterdark frame.
+# masterflat - Routine to create a masterflat frame.
+# writefits  - Write the masterdark to a file.
+
+# Modules required:
+# - astropy.io.fits
+# - numpy
+# - datetime
+# ------------------------------------------------------------------------------
 
     print "Checking image calibration..."
 
@@ -715,10 +750,10 @@ def calib(ref_filename, dataref, hdr_data):
     exposure  = datacheck['EXPOSURE']  
     obsfilter = datacheck['FILTER']
 
-    # Set calibration flags
-    biascor = False
-    darkcor = False
-    flatcor = False
+    # Set calibration flags for testing
+    #biascor = False
+    #darkcor = False
+    #flatcor = False
 
     # Look for these IRAF keywords, if they exist assume that the image has 
     # been calibrated.
