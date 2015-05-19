@@ -304,6 +304,14 @@ def makebias(dsize, dirs):
 # - os
 # ------------------------------------------------------------------------------
 
+    # Check to see that bias directory exits. If it does not exit bias calibration.
+    if not os.path.exists(dirs['bias']):
+       print "WARNING: Bias frames directory does not exist!"
+       print "         Bias calibration aborted!"
+       biascheck = False
+       masterbias = 0
+       return (biascheck, masterbias)
+
     # Move to the bias files directory
     prev_dir = os.path.abspath(os.curdir)
     os.chdir(dirs['bias'])
@@ -384,7 +392,15 @@ def makedark(dsize, exposure, dirs):
 # - os
 # ------------------------------------------------------------------------------
 
-    # Move to the bias files directory
+    # Check to see that dark frames directory exits. If it does not exit dark calibration.
+    if not os.path.exists(dirs['dark']):
+       print "WARNING: Dark frames directory does not exist!"
+       print "         Dark calibration aborted!"
+       darkcheck = False
+       masterdark = 0
+       return (darkcheck, masterdark)
+
+    # Move to the dark files directory
     prev_dir = os.path.abspath(os.curdir)
     os.chdir(dirs['dark'])
 
@@ -550,8 +566,16 @@ def makeflat(dsize, obsfilter, dirs):
 # - datetime
 # - os
 # ------------------------------------------------------------------------------
- 
-    # Move to the bias files directory
+
+    # Check to see that flats directory exits. If it does not exit flat calibration.
+    if not os.path.exists(dirs['flat']):
+       print "WARNING: Flat frames directory does not exist!"
+       print "         Flat fielding aborted!"
+       flatcheck = False
+       masterflat = 0
+       return (flatcheck, masterflat)
+
+    # Move to the flat files directory
     prev_dir = os.path.abspath(os.curdir)
     os.chdir(dirs['flat'])
  
