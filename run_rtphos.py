@@ -259,7 +259,7 @@ def seekfits(dataref,dirs,tsleep, comparisons, targets, psf_fwhm):
                  ################################################
 
                  # now initiate the calibration, offsets and photometry
-                 ccdcalib.calib(filename, data2, hdr, dirs)
+                 ccdcalib.calib(dirs, filename, data2, hdr)
 
                  # find offsets from dataref
                  thisoffset = zach_offsets(dataref,data2)
@@ -305,7 +305,7 @@ def run_rtphos(xpapoint):
     print("... Working ...")
 
     # Check image calibration and calibrate if required.   
-    ccdcalib.calib(ref_filename, dataref, hdr, dirs)
+    ccdcalib.calib(dirs, ref_filename, dataref, hdr)
 
     ### return the processed filename
     
