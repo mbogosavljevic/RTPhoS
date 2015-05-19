@@ -221,12 +221,12 @@ def write_optphot_init(imdir, comparisons, targets):
 
 #############################################################################
 
-def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
+def seekfits(dataref,dirs,tsleep, comparisons, targets, psf_fwhm):
 # requires zach_offsets, write_optphot_init
 
-    print("IMDIR: "+imdir)
+    print("IMDIR: "+dirs['data'])
 
-    before = dict ([(f, None) for f in os.listdir (imdir)])
+    before = dict ([(f, None) for f in os.listdir(dirs['data'])])
     
     # counter needed just to print out progress
     count = 0.
@@ -234,15 +234,15 @@ def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
     try:
       while 1:
            count = count + 1
-           print int(count), "*LISTENING*", imdir, time.strftime('%X %x %Z')
-           after = dict ([(f, None) for f in os.listdir (imdir)])
+           print int(count), "*LISTENING*", dirs['data'], time.strftime('%X %x %Z')
+           after = dict ([(f, None) for f in os.listdir(dirs['data'])])
            added = [f for f in after if not f in before]
 
            if added: 
              print "Added files: ", ", ".join (added)
              for filein in enumerate(added):                  
                # check if it is a fits file
-               filename = imdir + '/' + filein[1] 
+               filename = dirs['data']+'/'+filein[1] 
                print filename
                # WARNING - hardcoded the '.fits' or '.fit' extensions
                if (filename.endswith('.fits') or filename.endswith('.fit')):
@@ -259,8 +259,7 @@ def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
                  ################################################
 
                  # now initiate the calibration, offsets and photometry
-                 filename=os.path.basename(filename)
-                 ccdcalib.calib(filename, data2, hdr)
+                 ccdcalib.calib(filename, data2, hdr, dirs)
 
                  # find offsets from dataref
                  thisoffset = zach_offsets(dataref,data2)
@@ -270,7 +269,7 @@ def seekfits(dataref,imdir,tsleep, comparisons, targets, psf_fwhm):
 			  ### This needs to be somewhere else. Target and comp files
 			  ### do not have to be created every time a new file is detected.
                  print("Targets here", targets)
-                 t = write_optphot_init(imdir, comparisons, targets)
+                 t = write_optphot_init(dirs['data'], comparisons, targets)
                  print "Wrote Opphot init files"
                  ### RUN OPPHOT ......
                  #!!!!!!
@@ -287,17 +286,28 @@ def run_rtphos(xpapoint):
     win = pyds9.DS9(xpapoint)
     # load the image which is displayed in ds9 (from disk!)
     ref_filename = win.get("file")
+
+    # Set up input and output directories
+    path, filename = os.path.split(ref_filename)    
+    data_dir = path # Set data directory as the directory of the DS9 image.
+    os.chdir("..")  # Move up a directory
+    current_dir = os.path.abspath(os.curdir)
+    bias_dir = current_dir+"/bias/"    # Ultimately these dirs need to be set by
+    dark_dir = current_dir+"/dark/"    # the user using a DS9 input window.
+    flat_dir = current_dir+"/flat/"    #  -""-
+    reduced_dir = data_dir+"/reduced/" #  -""-
+    if not os.path.exists(reduced_dir): os.makedirs(reduced_dir)
+    os.chdir(data_dir) # Move back to the data directory
+    # Make a dictionary with all the required directories
+    dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, 'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir}
+
     dataref, hdr = pyfits.getdata(ref_filename, header=True)     
     print("... Working ...")
 
     # Check image calibration and calibrate if required.   
-    filename = os.path.basename(ref_filename)
-    ccdcalib.calib(filename, dataref, hdr)
+    ccdcalib.calib(ref_filename, dataref, hdr, dirs)
 
     ### return the processed filename
-    
-    # extract path to where other images are expected to be coming in
-    imdir = os.path.dirname(os.path.abspath(ref_filename))
     
     # select and centroid all created regions
     # make lists of xc,yc of comparison stars (name must start with 'C-'
@@ -353,7 +363,7 @@ def run_rtphos(xpapoint):
     # WARNING - HARDCODING - deal with optional parameter later
     # take 3 seconds default sleep time
     tsleep = 3 
-    seekfits(dataref, imdir, tsleep, comparisons, targets, psf_fwhm)
+    seekfits(dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
     
 if  __name__ == "__main__":
 

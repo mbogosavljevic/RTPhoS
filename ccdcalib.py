@@ -90,6 +90,7 @@ def writefits(data, hdr, filename):
 # - astropy.io.fits
 # ------------------------------------------------------------------------------       
 
+    # Make the FITS header for the output file.
     hdr_out = hdr.copy(strip=True)  
     hdu_out = pyfits.PrimaryHDU(data, hdr_out)
 #   hdu_out.scale(type='float32', bzero=32768, bscale=1)    # For compatibility use 32 bits per data pixel. This does not seem to work as it rounds up and precision is lost.
@@ -146,18 +147,23 @@ def mediancomb(filenamesin):
 #===============================================================================
 # Select FITS files based on a filename wildcard.
 #===============================================================================
-def makefilelist(wildcard):
+def makefilelist(wildcard, directory="."):
 
 # ------------------------------------------------------------------------------
 # Input arguments are:
 # wildcard   - Type: String    - A wildcard string to search for files.
+# directory  - Type: String    - Directory of the filenames (optional).
 
 # Output arguments are:
 # filelist   - Type: List      - A list of filenames
 
 # Modules required:
 # - glob
+# - os
 # ------------------------------------------------------------------------------
+
+    # Move to the specified directory
+    os.chdir(directory)
 
     # Search for all files in the current directory that satisfy the wildcard provided
     filelist = sorted(glob.glob(wildcard))
@@ -193,7 +199,6 @@ def checksize(filelistin, dsize, calltxt):
 # - astropy.io.fits
 # - numpy
 # ------------------------------------------------------------------------------
-
 
     # First make a list of all the frame sizes that are available
     sizes=[]
@@ -278,11 +283,12 @@ def checksize(filelistin, dsize, calltxt):
 #===============================================================================
 # Create a Masterbias frame from available bias frames.
 #===============================================================================
-def makebias(dsize):
+def makebias(dsize, dirs):
 
 # ------------------------------------------------------------------------------
 # Inputs:
-# dsize    - Type: Tuple - The size of the original image data array
+# dsize       - Type: Tuple       - The size of the original image data array
+# dirs        - Type: Dictionary  - Input and output directories
 
 # Outputs:
 # bias     - Type: Tuple - Tuple containing a boolean and the bias image array 
@@ -295,7 +301,12 @@ def makebias(dsize):
 # - astropy.io.fits
 # - numpy
 # - datetime
+# - os
 # ------------------------------------------------------------------------------
+
+    # Move to the bias files directory
+    prev_dir = os.path.abspath(os.curdir)
+    os.chdir(dirs['bias'])
 
     # Get all the available bias files into a file list.
     biasfiles = makefilelist('*bias*')
@@ -303,7 +314,9 @@ def makebias(dsize):
 
     if biasnum==0:
        biascheck = False
+       masterbias = 0
        print "WARNING: No bias frames found data will not be bias calibrated!"
+       os.chdir(prev_dir)
        return (biascheck, masterbias)
 
     # Check to see that all bias frames are of the same size and make a list
@@ -316,6 +329,8 @@ def makebias(dsize):
        print "Match Found! Creating masterbias using ",biasnum," available frames!"
     else:
        biascheck = False
+       masterbias = 0
+       os.chdir(prev_dir)
        return (biascheck, masterbias)
 
     # Create the median image.
@@ -335,22 +350,24 @@ def makebias(dsize):
     hdr_out['COMMENT'] = (biastxt)          
 
     # Output the image to a FITS file using the output filename supplied.
-    writefits(masterbias, hdr_out, filenameout)
+    writefits(masterbias, hdr_out, dirs['reduced']+filenameout)
     biascheck = True
     bias = (biascheck, masterbias)
 
+    os.chdir(prev_dir)
     return bias
 
 
 #===============================================================================
 # Create a Masterdark frame from available dark frames.
 #===============================================================================
-def makedark(dsize, exposure):
+def makedark(dsize, exposure, dirs):
     
 # ------------------------------------------------------------------------------
 # Inputs:
 # dsize    - Type: Tuple  - The size of the original image data array
 # exposure - Type: String - The exposure of the image data
+# dirs     - Type: Dictionary  - Input and output directories
 
 # Outputs:
 # dark     - Type: Tuple  - Tuple containing a boolean and the dark image array
@@ -364,15 +381,22 @@ def makedark(dsize, exposure):
 # - astropy.io.fits
 # - numpy
 # - datetime
+# - os
 # ------------------------------------------------------------------------------
+
+    # Move to the bias files directory
+    prev_dir = os.path.abspath(os.curdir)
+    os.chdir(dirs['dark'])
 
     # Get all the available dark files into a file list.
     darkfiles = makefilelist('*dark*')
     darknum = len(darkfiles)
     if darknum==0:
        darkcheck = False
+       masterdark = 0
        print "WARNING: No dark frames found data will not be dark calibrated!"
-       return masterdark
+       os.chdir(prev_dir)
+       return (darckcheck, masterdark)
 
     # Check to see that all dark frames are of the same size and make a list
     # of all frames of the same size.
@@ -382,7 +406,9 @@ def makedark(dsize, exposure):
     darknum = len(posdarkfiles)
     if darknum<1:
        darkcheck = False
-       return masterdark    
+       masterdark = 0
+       os.chdir(prev_dir)
+       return (darkcheck, masterdark)  
 
     # Check that all the dark files in the file list have the same exposure.
     # If they don't create a dictionary of filenames and exposures.
@@ -456,24 +482,24 @@ def makedark(dsize, exposure):
     masterdark = mediancomb(gooddarkfiles)
     
 	# Check to see if a masterbias frame exists and if it does subract it from the dark.
-    if os.path.isfile('masterbias.fits'):	
-       masterbias = pyfits.getdata('masterbias.fits')
+    if os.path.isfile(dirs['reduced']+'masterbias.fits'):	
+       masterbias = pyfits.getdata(dirs['reduced']+'masterbias.fits')
        # Check to see if the bias is of the same size as the dark.
        bias_size = np.shape(masterbias)
        if bias_size == np.shape(masterdark):
            masterdark = masterdark - masterbias
        else:
-           bias = makebias(dsize)
+           bias = makebias(dsize, dirs)
            biascheck = bias[0]
            masterbias = bias[1]
            if biascheck: masterdark = masterdark - masterbias
     else:
-       bias = makebias(dsize)
+       bias = makebias(dsize, dirs)
        biascheck = bias[0]
        masterbias = bias[1]
        if biascheck: masterdark = masterdark - masterbias
 
-    # If the dark needs to be scale it use the scaling factor calculated above.
+    # If the dark needs to be scaled use the scaling factor calculated above.
     if nomatch: masterdark = masterdark*factor 
 
     # Output filename and header text construct.
@@ -491,21 +517,23 @@ def makedark(dsize, exposure):
     print "Dark Median: ", np.median(masterdark)
     # Output the masterdark frame.
     # Filename hardwired as masterdark.fits
-    writefits(masterdark, hdr_out, 'masterdark.fits')
+    writefits(masterdark, hdr_out, dirs['reduced']+outfilename)
     darkcheck = True
     dark = (darkcheck, masterdark)
 
+    os.chdir(prev_dir)
     return dark
 
 #===============================================================================
 # Create a Masterflat frame from available flat frames.
 #===============================================================================
-def makeflat(dsize, obsfilter):
+def makeflat(dsize, obsfilter, dirs):
   
 # ------------------------------------------------------------------------------
 # Inputs:
 # dsize     - Type: Tuple  - The size of the original image data array
 # obsfilter - Type: String - The observation filter
+# dirs      - Type: Dictionary  - Input and output directories
 
 # Outputs:
 # flat      - Type: Tuple  - Tuple containing a boolean and the flat image array
@@ -520,8 +548,13 @@ def makeflat(dsize, obsfilter):
 # - astropy.io.fits
 # - numpy
 # - datetime
+# - os
 # ------------------------------------------------------------------------------
-  
+ 
+    # Move to the bias files directory
+    prev_dir = os.path.abspath(os.curdir)
+    os.chdir(dirs['flat'])
+ 
     # Get all the available flat files into a file list.
     flatfiles = makefilelist('*flat*')
     flatnum = len(flatfiles)
@@ -538,7 +571,9 @@ def makeflat(dsize, obsfilter):
     flatnum = len(posflatfiles)
     if flatnum<1:
        flatcheck = False
-       return masterflat    
+       masterflat = 0
+       os.chdir(prev_dir)
+       return (flatcheck, masterflat)    
 
     # Check that all the flat field files in the file list have the same filter.
     # If they don't create a dictionary of filenames and filters.
@@ -588,7 +623,9 @@ def makeflat(dsize, obsfilter):
         print "WARNING: No matching flat fielding frames found!" 
         print "         Data will not be flat fielded!"
         flatcheck = False
-        return masterflat
+        masterflat = 0
+        os.chdir(prev_dir)
+        return (flatcheck, masterflat)
  
     # Select the filelist that matches the required size
     goodflatfiles = filelists[pos]
@@ -620,7 +657,9 @@ def makeflat(dsize, obsfilter):
        print "WARNING: Found Flat frames of the same filter but with different"
        print "         exposures. I can't handle this. No flat fielding will be done!"
        flatcheck = False
-       return masterflat
+       masterflat = 0
+       os.chdir(prev_dir)
+       return (flatcheck, masterflat)
 
     #print goodflatfiles
 
@@ -628,14 +667,14 @@ def makeflat(dsize, obsfilter):
     masterflat = mediancomb(goodflatfiles)
 
 	# Check to see if a masterbias frame exists and if it does subract it from the flat.
-    if os.path.isfile('masterbias.fits'):	
-       masterbias = pyfits.getdata('masterbias.fits')
+    if os.path.isfile(dirs['reduced']+'masterbias.fits'):	
+       masterbias = pyfits.getdata(dirs['reduced']+'masterbias.fits')
        # Check to see if the bias is of the same size as the dark.
        bias_size = np.shape(masterbias)
        if bias_size == np.shape(masterflat):
            masterflat = masterflat - masterbias
        else:
-           bias = makebias(dsize)
+           bias = makebias(dsize, dirs)
            biascheck = bias[0]
            masterbias = bias[1]
            if biascheck: masterflat = masterflat - masterbias
@@ -646,8 +685,8 @@ def makeflat(dsize, obsfilter):
        if biascheck: masterflat = masterflat - masterbias
 
 	# Check to see if a masterdark frame exists and if it does subract it from the flat.
-    if os.path.isfile('masterdark.fits'):	
-       masterdark, darkhdr = pyfits.getdata('masterdark.fits', header=True)
+    if os.path.isfile(dirs['reduced']+'masterdark.fits'):	
+       masterdark, darkhdr = pyfits.getdata(dirs['reduced']+'masterdark.fits', header=True)
        # Check to see if the dark is of the same size as the flat.
        dark_size = np.shape(masterdark)
        if dark_size == np.shape(masterflat):
@@ -667,12 +706,12 @@ def makeflat(dsize, obsfilter):
             masterdark = masterdark * factor
             masterflat = masterflat - masterdark
        else:
-          dark = makedark(dsize, flatexp)
+          dark = makedark(dsize, flatexp, dirs)
           darkcheck = dark[0]
           masterdark = dark[1]
           if darkcheck: masterflat = masterflat - masterdark
     else:
-       dark = makedark(dsize, flatexp)
+       dark = makedark(dsize, flatexp, dirs)
        darkcheck = dark[0]
        masterdark = dark[1]
        if darkcheck: masterflat = masterflat - masterdark
@@ -683,6 +722,9 @@ def makeflat(dsize, obsfilter):
     print "Flat Median: ", np.median(masterflat)
     masterflat = masterflat/flatmedian
     print "Nomalized Flat Median: ", np.median(masterflat)
+
+    # Output filename and header text construct.
+    outfilename = 'masterflat.fits'
 
     # Construct a COMMENT keyword and add it to the output flat field header
     # First, get the header of the first file to use as a header for the output file.
@@ -695,20 +737,22 @@ def makeflat(dsize, obsfilter):
 
     # Output the masterflat frame.
     # Filename hardwired as masterflat.fits
-    writefits(masterflat, hdr_out, 'masterflat.fits')
+    writefits(masterflat, hdr_out, dirs['reduced']+outfilename)
     flatcheck = True
     flat = (flatcheck, masterflat)
 
+    os.chdir(prev_dir)
     return flat
 
 
 #===============================================================================
 # ----------------------CALIBRATION INITIALIZATION------------------------------
 #===============================================================================
-def calib(ref_filename, dataref, hdr_data):
+def calib(dirs, ref_filename, dataref, hdr_data):
 
 # ------------------------------------------------------------------------------
 # Inputs:
+# dirs         - Type: Dictionary - Holds all the relevant directory paths
 # ref_filename - Type: String - The image data filename
 # dataref      - Type: Array  - The image 2-D data array
 # hdr_data     - Type: Class  - The image header
@@ -732,6 +776,9 @@ def calib(ref_filename, dataref, hdr_data):
 
     print "Checking image calibration..."
 
+    # Strip the filename of its path
+    ref_filename = os.path.basename(ref_filename)
+
     # Check to see that this is a 2-D image if not stop.
     if hdr_data['NAXIS'] != 2:
        print "WARNING: Not a 2D image file! Proceeding to next frame..."
@@ -750,10 +797,11 @@ def calib(ref_filename, dataref, hdr_data):
     exposure  = datacheck['EXPOSURE']  
     obsfilter = datacheck['FILTER']
 
-    # Set calibration flags for testing
-    #biascor = False
-    #darkcor = False
-    #flatcor = False
+    # Set calibration flags. Default setting should be False.
+    # Change to True if you want to exclude some parts of the code for testing.
+    biascor = False
+    darkcor = False
+    flatcor = False
 
     # Look for these IRAF keywords, if they exist assume that the image has 
     # been calibrated.
@@ -778,19 +826,19 @@ def calib(ref_filename, dataref, hdr_data):
     if not biascor:
        print "Frame is not Bias calibrated"
        print "Proceeding with removing the bias..."
-       if os.path.isfile('masterbias.fits'):   
-          masterbias = pyfits.getdata('masterbias.fits')
+       if os.path.isfile(dirs['reduced']+'masterbias.fits'):   
+          masterbias = pyfits.getdata(dirs['reduced']+'masterbias.fits')
           if np.shape(masterbias) != dsize:
              biascheck = False
              print "WARNING: Masterbias frame is of different size than data frames!"
              print "         Attempting to make new masterbias frame..."
-             bias = makebias(dsize)
+             bias = makebias(dsize, dirs)
              biascheck = bias[0]
              masterbias = bias[1]
           else:
              biascheck = True
        else:
-          bias = makebias(dsize)
+          bias = makebias(dsize, dirs)
           biascheck = bias[0]
           masterbias = bias[1]
        if biascheck:
@@ -802,19 +850,19 @@ def calib(ref_filename, dataref, hdr_data):
     if not darkcor:
        print "Frame is not Dark calibrated"
        print "Proceeding with removing the dark..."
-       if os.path.isfile('masterdark.fits'):   
-          masterdark = pyfits.getdata('masterdark.fits')
+       if os.path.isfile(dirs['reduced']+'masterdark.fits'):   
+          masterdark = pyfits.getdata(dirs['reduced']+'masterdark.fits')
           if np.shape(masterdark) != dsize:
              darkcheck = False
              print "WARNING: Masterdark frame is of different size than data frames!"
              print "         Attempting to make new masterdark frame..."
-             dark = makedark(dsize, exposure)
+             dark = makedark(dsize, exposure, dirs)
              darkcheck = dark[0]
              masterdark = dark[1]
           else:
              darkcheck = True
        else:
-          dark = makedark(dsize, exposure)
+          dark = makedark(dsize, exposure, dirs)
           darkcheck = dark[0]
           masterdark = dark[1]
        if darkcheck:
@@ -826,19 +874,19 @@ def calib(ref_filename, dataref, hdr_data):
     if not flatcor:
        print "Frame is not flat fielded!"
        print "Proceeding with flat fielding..."
-       if os.path.isfile('masterflat.fits'):   
-          masterdark = pyfits.getdata('masterflat.fits')
+       if os.path.isfile(dirs['reduced']+'masterflat.fits'):   
+          masterdark = pyfits.getdata(dirs['reduced']+'masterflat.fits')
           if np.shape(masterflat) != dsize:
              flatcheck = False
              print "WARNING: Masterflat frame is of different size than data frames!"
              print "         Attempting to make new masterflat frame..."
-             flat = makeflat(dsize, obsfilter)
+             flat = makeflat(dsize, obsfilter, dirs)
              flatcheck = flat[0]
              masterflat = flat[1]
           else:
              flatcheck = True
        else:
-          flat = makeflat(dsize, obsfilter)
+          flat = makeflat(dsize, obsfilter, dirs)
           flatcheck = flat[0]
           masterflat = flat[1]          
        if flatcheck:
@@ -853,15 +901,28 @@ def calib(ref_filename, dataref, hdr_data):
     if flatcheck: hdr_out['FLATCOR'] = (flattxt)
 
     # Write the output to disk giving the prefix of 'c_' to the calibrated frame.    
-    if biascheck or darkcheck or flatcheck: writefits(dataref, hdr_out, 'c_'+ref_filename)
+    if biascheck or darkcheck or flatcheck: writefits(dataref, hdr_out, dirs['reduced']+'c_'+ref_filename)
 
     return   
 
 if __name__ == "__main__":
 
-#  For testing
-   ref_filename = 'J1753.fits'
+#  For testing    
+
+   # Set up input and output directories
+   current_dir = os.path.abspath(os.curdir)
+   bias_dir = current_dir+"/bias/"
+   dark_dir = current_dir+"/dark/"
+   flat_dir = current_dir+"/flat/"
+   data_dir = current_dir+"/data/"
+   reduced_dir = data_dir+"/reduced/"
+   if not os.path.exists(reduced_dir): os.makedirs(reduced_dir)
+
+   # Make a dictionary with all the directories
+   dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, 'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir}
+
+   ref_filename = dirs['data']+'J1753.fits'
    dataref, hdr_data = pyfits.getdata(ref_filename, header=True)     
-   calib(ref_filename, dataref, hdr_data)
+   calib(dirs, ref_filename, dataref, hdr_data)
    print "Calibration Done!"
 
