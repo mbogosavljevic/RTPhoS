@@ -221,7 +221,7 @@ def write_optphot_init(imdir, comparisons, targets):
 
 #############################################################################
 
-def seekfits(dataref,dirs,tsleep, comparisons, targets, psf_fwhm):
+def seekfits(dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
 # requires zach_offsets, write_optphot_init
 
     print("IMDIR: "+dirs['data'])
@@ -259,7 +259,9 @@ def seekfits(dataref,dirs,tsleep, comparisons, targets, psf_fwhm):
                  ################################################
 
                  # now initiate the calibration, offsets and photometry
-                 ccdcalib.calib(dirs, filename, data2, hdr)
+                 calib_data=ccdcalib.calib(dirs, filename, data2, hdr)
+                 data2 = calib_data[0]
+                 hdr = calib_data[1]
 
                  # find offsets from dataref
                  thisoffset = zach_offsets(dataref,data2)
@@ -305,9 +307,11 @@ def run_rtphos(xpapoint):
     print("... Working ...")
 
     # Check image calibration and calibrate if required.   
-    ccdcalib.calib(dirs, ref_filename, dataref, hdr)
+    result = ccdcalib.calib(dirs, ref_filename, dataref, hdr)
+    dataref = result[0]
+    hdr = result[1]
 
-    ### return the processed filename
+    ### return the processed filename - WHY???
     
     # select and centroid all created regions
     # make lists of xc,yc of comparison stars (name must start with 'C-'

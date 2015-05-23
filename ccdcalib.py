@@ -1,6 +1,21 @@
 #!/usr/bin/python
 #
+
 """
+This Python module contais the following functions:
+
+makechecklist - Makes dictionary of selected FITS header keywords
+writefits     - Writes a FITS file to disk       
+mediancomb    - Median combines 2-D FITS file images read from a filelist
+makefilelist  - Makes a filelist given a filename wildcard
+checksize     - Makes a list of FITS images with the specified image array shape 
+makebias      - Creates a masterbias image
+makedark      - Creates a masterdark image
+makeflat      - Creates a masterflat image
+calib         - Starts the calibration process 
+
+Comments: 
+========
 Currently the code below will check to see if a data frame has been calibrated
 by looking to see if the IRAF FITS Headers BIASCOR, DARKCOR and FLATCOR exist.
 If they exist the code will assume that the data is calibrated and will do nothing.
@@ -22,6 +37,7 @@ bad pixels.
 - Put in various other checks such as observation epoch.
 
 """
+
 import astropy.io.fits as pyfits
 import glob
 import numpy as np
@@ -73,7 +89,7 @@ def makechecklist(hdr):
 
 
 #===============================================================================
-# Write a FITS file with updated headers.
+# Write a FITS file to disk.
 #===============================================================================
 def writefits(data, hdr, filename):
 
@@ -927,7 +943,8 @@ def calib(dirs, ref_filename, dataref, hdr_data):
     # Write the output to disk giving the prefix of 'c_' to the calibrated frame.    
     if biascheck or darkcheck or flatcheck: writefits(dataref, hdr_out, dirs['reduced']+'c_'+ref_filename)
 
-    return   
+    result = (dataref, hdr_out)
+    return result
 
 if __name__ == "__main__":
 
