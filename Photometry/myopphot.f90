@@ -1,4 +1,4 @@
-program optimal_phot
+program optimal
 
 !=============================================================================== 
 ! VERSION FOR RTPhoS - No User INPUT, all input controlled from run_RTPhos.py
@@ -21,15 +21,14 @@ program optimal_phot
 ! cfitsio      - NASA's FITS file manipulation library needs to be installed.
 !
 ! Compiles with:
-! edit optimal.csh and source it. (Edit needed to provide path for cfitsio library)
 !
-! Alternatively (I use g95 but any Fortran compiler will do):
-! g95 -c opt_extr.f90 marq.f90 subs.f90
+! g95 -c opt_extr.f90 
 ! g95 -o optimal optimal.f90 marq.o opt_extr.o subs.o -L/<Local Path>/cfitsio -lcfitsio
+!
 !
 ! Required improvements:
 ! 1. Include flagging of bad pixels, bad stars, bad sky etc. This feature was removed from
-!    The original code by Tim in order to make the code independent of the ARK
+!    The original code by Tim in order to make the code independedn of the ARK
 !    software package. 
 
   use subs
@@ -134,8 +133,38 @@ program optimal_phot
 ! ***************************************************************
 
 ! Read input parameters
-  read*, filename, psfpos, starpos, verbosein
+  read*, filename, psfpos, starpos
   read*, bad_sky_skw, bad_sky_chi, fwhm, clip_fwhm, aprad, iopt, searchrad, adu
+
+
+!  read*, filelistin  
+!  read*, offsetfile
+!  read*, timesfile
+
+!  read*, verbosein
+
+! Open the input parameter file and read the options.
+!  call ftgiou(iunit1, status)            
+!  open (unit=iunit1, file='input.par', status='old', access='sequential')
+!  read(iunit1,*)
+!  read(iunit1,*)
+!  read(iunit1,*)
+!  read(iunit1,'(A25,A50)')dummy, filelistin  
+!  read(iunit1,'(A25,A50)')dummy, psfpos
+!  read(iunit1,'(A25,A50)')dummy, starpos
+!  read(iunit1,'(A25,A50)')dummy, offsetfile
+!  read(iunit1,'(A25,A50)')dummy, timesfile
+!  read(iunit1,'(A25,F4.0)')dummy, bad_sky_skw
+!  read(iunit1,'(A25,F4.0)')dummy, bad_sky_chi
+!  read(iunit1,'(A25,F5.0)')dummy, clip_fwhm
+!  read(iunit1,'(A25,F5.0)')dummy, aprad
+!  read(iunit1,'(A25,I3)')dummy, iopt
+!  read(iunit1,'(A25,F5.0)')dummy, searchrad
+!  read(iunit1,'(A25,F5.0)')dummy, adu
+!  read(iunit1,'(A25,A)')dummy, verbosein
+!  close(iunit1)
+
+  call system('clear')
 
 ! Initialize variables, set global constants
 
@@ -147,7 +176,7 @@ program optimal_phot
 
   optimal=.true.
   aperature=.true.
-!  verbosein = "N" 
+  verbosein = "N"          ! Minimize the screen output for the pipeline version
 
 ! Set the program output type
   verbose = .False.
@@ -215,7 +244,7 @@ program optimal_phot
 ! Check to see that the file exists.
   inquire(file=starpos, exist=there)
   if (.not. there) then
-     print*, '* WARNING Target Star Positions Not Found. Nothing to do. Exiting....'
+     print*, '* Target Star Positions Not Found. Nothing to do. Exiting....'
      stop
   end if
 
@@ -237,6 +266,124 @@ program optimal_phot
      end do
   end if 
 
+! ***************************************************************
+! Read the offsets for each frame.
+! ***************************************************************
+ 
+! Open the file with the offsets of each frame in relation to the first frame
+! of the sequence. The format of the input file should have 3 comment or
+! blank lines at the top. Then the file will have one line with the corresponding
+! filename followed by one line of the form: 
+! Frame ID#, X-offset, Y-offset    
+
+! Check to see that the file is there
+!  inquire(file=offsetfile, exist=there)
+!  if (.not. there) then
+!     print*, '* WARNING: Offsets File Not Found! Will proceed without it.'
+!     print*
+!     stop
+!    **** Make this so that if offsets file is not found all offsets are set to zero.
+!  end if
+
+! Initialize offset reading variables
+!  rows = 0
+
+!  call ftgiou(iunit1, status) 
+!  open (unit=iunit1, file=offsetfile, status='old', access='sequential')
+!  read (iunit1,*)
+!  read (iunit1,*) 
+!  read (iunit1,*)
+!  do
+!    read (iunit1,*,iostat=eof1)dummy
+!         if (eof1/=0) exit
+!         rows = rows + 1
+!  end do 
+!  nframes = rows/2
+!  print*
+!  if (verbose) then
+!     print*, "Number of frames found: ", nframes
+!     print*
+!  end if
+!  rewind(iunit1)
+!  allocate(offsets(3,nframes))
+!  allocate(datafiles(nframes))
+! Read in the offsets for every frame.
+!  read (iunit1,*)
+!  read (iunit1,*) 
+!  read (iunit1,*)
+!  do i=1, nframes
+!     read(iunit1,*) datafiles(i)
+!     read(iunit1,*) offsets(1,i), offsets(2,i), offsets(3,i)
+!  end do     
+!  close(iunit1)      
+!  call ftfiou(iunit1, status)
+
+! ***************************************************************
+! Read the times for each frame from times.dat
+! ***************************************************************
+ 
+! Open the file with the offsets of each frame in relation to the first frame
+! of the sequence. The format of the input file should have 3 comment or
+! blank lines at the top. Then the file will have one line with the corresponding
+! filename followed by one line of the form: 
+! Time of observation, Error in time (Half exposure time)    
+
+! Check to see that the file exists.
+!  inquire(file=timesfile, exist=there)
+!  if (.not. there) then
+!     print*, '* WARNING: Times File Not Found! Will Proceed without it!'
+!     print*, '*          Instead of time only frame number will be reported.'
+!     print*
+!     iftimes=.false.
+!  end if
+
+!  if (iftimes) then
+!    Initialize times reading variables
+!     rows = 0
+
+!     call ftgiou(iunit1, status) 
+!     open (unit=iunit1, file=timesfile, status='old', access='sequential')
+!     read (iunit1,*)
+!     read (iunit1,*) 
+!     read (iunit1,*)
+!     do
+!       read (iunit1,*,iostat=eof1)dummy
+!            if (eof1/=0) exit
+!            rows = rows + 1
+!     end do 
+!     ntimes = rows/2
+!     if (verbose) print*, "Number of times found: ", ntimes
+!     print*
+!     rewind(iunit1)
+!     allocate(times(2,ntimes))
+!     allocate(timefiles(ntimes))
+!    Read in the time data.
+!     read (iunit1,*)
+!     read (iunit1,*) 
+!     read (iunit1,*)
+!     do i=1, ntimes
+!        read(iunit1,*) timefiles(i)
+!        read(iunit1,*) times(1,i), times(2,i)
+!     end do     
+!     close(iunit1)      
+!     call ftfiou(iunit1, status)
+
+!    Make sure that the number of time stamps that we have equals the number of
+!    offsets. If not equal alert the user and stop the program.
+!     if (ntimes/=nframes) then
+!        print*, '* WARNING: Number of times found does not match number of frames.' 
+!        print*, '           Insted of time only frame number will be reported.'
+!	print*
+!	iftimes=.false.
+!	ntimes=nframes
+!        times=0.0d0
+!     end if
+!  else
+!       ntimes=nframes
+!       allocate(times(2,ntimes))
+!       times=0.0d0
+!  end if
+
 ! Allocate all the arrays.
 ! Since this is the pipeline version it runs every time for a single file.
 ! Therefore ntimes must equal 1.
@@ -251,6 +398,10 @@ program optimal_phot
 ! Setup all the optimal and aperature photometry options
 ! ***************************************************************
 
+!  fwhm=2.0 ! An arbitrary star FWHM. This must be evaluated for every image
+           ! before running opphot. *************************************** 
+
+ 
   ! If not set, set the clipping radius for the PSF.
   ! Most of the signal-to-noise is obtained by setting the clipping
   ! radius to be 2*fwhm.  But there is little gain in speed by
@@ -282,8 +433,8 @@ program optimal_phot
                        exit optstar
                     end if
       	         end do
-	             print*, "* WARNING: The star to optimize for is not in the target list."
-                 print*, " (Optimal) Will proceed with sky limited optimization."
+	         print*, "* WARNING: The star to optimize for is not in the target list."
+                 print*, "           Will proceed with sky limited optimization."
                  print*
                  iopt=-1
                  exit optstar
@@ -305,18 +456,20 @@ program optimal_phot
   end if
   if (searchrad <=0.0) then
      print*, "* WARNING: Search radius is zero or negative. No centroiding will be performed"
-     print*, "*(Optimal) and the positions will be fixed to the input values."
+     print*, "*          and the positions will be fixed to the input values."
      print*
   end if
 
 ! Summary of all the setup options.
-  if (verbose) then
+!  if (verbose) then
      print*, 'Photometry will be performed with the following options:'
      print*, '========================================================'
      print*, 'Input PSF file                      :',trim(psfpos)
      print*, 'Stars listed in the PSF file        :',npsf
      print*, 'Input target star file              :',trim(starpos)
      print*, 'Stars listed in the target star file:',nstar
+!     print*, 'Offsets file                        :',trim(offsetfile)
+!     print*, 'Times file                          :',trim(timesfile)
      print*, 'Sky skew flag limit                 :',bad_sky_skw
      print*, 'Sky Chi^2 flat limit                :',bad_sky_chi
      print*, 'FWHM of image                       :',fwhm
@@ -327,7 +480,7 @@ program optimal_phot
      print*, 'Detector gain (e-/ADU)              :',adu
      print*, '======================================================='
      print*
-  end if
+!  end if
 
 ! If both the optimal and photometry options are negative exit the program.
   if (.not.optimal) print*, '* Optical Photometry will not be performed'
@@ -337,15 +490,36 @@ program optimal_phot
      stop
   end if
 
+! Set up the progress indicator only if in non-verbose mode.
+!  if (verbose) then
+!     print*
+!  else
+!     print*, 'Processing ',ntimes,' frames....'
+!     print*, '|                              |'
+!     progcnt=1
+!     stepcnt=ntimes/30
+!     write(*,'(A)',advance='no')'  '
+!  end if
+
 ! ***************************************************************
 ! Begin the Photometry Processes
 ! ***************************************************************
 
   frame: do fnum=1, ntimes
 
+!	 if (verbose) then
+!            dummy=dummy
+!         else
+!            if (fnum==progcnt) then 
+!               write(*,'(A)',advance='no')'='
+!	       progcnt=progcnt+stepcnt
+!            end if
+!         end if
+
          ! First read in the image data into a data array.
          ! Initialize CFITSIO required variables. 
-         if (verbose) print*, "Filename: ", filename         
+!         filename = datafiles(fnum)
+         print*, "*********************** Filename: ", filename         
          nfound=0
          naxis=2
          group=1
@@ -375,19 +549,21 @@ program optimal_phot
 !         print*, lpix(1), lpix(2)
 !         print*, "array value at x=100, y=100: ", data(100,100)
 !         print*, "maximum value position: ", maxloc(data)
-! 	      print*, "*********************"
+! 	  print*, "*********************"
          call ftclos(unit, status)
          call ftfiou(unit, status)
          ! Check for any error, and if so print out error messages.
          ! The PRINTERROR subroutine is listed at the end of this file.
-         if (status .gt. 0 .and. verbose) call printerror(status)
+         if (status .gt. 0)call printerror(status)
 
 !        Setup a dummy flag array - It must be properly set later  ********* 
-	     allocate(pix_flg(1:naxes(1),1:naxes(2)))
+	 allocate(pix_flg(1:naxes(1),1:naxes(2)))
          pix_flg="O"
 
 !        Estimate the position of the PSF stars
          if (clip_fwhm > 0.0) then
+!            xpos0 = real(psfstars(2,:))-offsets(2,fnum) ! No offsets for pipeline version
+!            ypos0 = real(psfstars(3,:))-offsets(3,fnum)
             xpos0 = real(psfstars(2,:))
             ypos0 = real(psfstars(3,:))
 
@@ -396,7 +572,7 @@ program optimal_phot
                             xpos0(i), ypos0(i)
             end do
 
-            if (verbose) print*, "@ Starting FWHM and Clipping radius is: ", fwhm, clip_fwhm
+            print*, "@ Starting FWHM and Clipping radius is: ", fwhm, clip_fwhm
 !           Fit the PSF stars
             call psf_calc(data, pix_flg, npsf, xpos0, ypos0, dpsf, &
                           adu, high, low, fwhm, shape_par, ipsf, nfit, verbose)
@@ -415,8 +591,8 @@ program optimal_phot
 
             ! Save the estimate of the seeing to an array.
             seeing(fnum)=sqrt(1.665*shape_par(1)*1.665*shape_par(2))
-	    if (verbose) print*, "@ New FWHM and Clipping radius is: ", fwhm, cliprad
-	    if (verbose) print*, "@ Seeing is: ", seeing(fnum)
+	    print*, "@ New FWHM and Clipping radius is: ", fwhm, cliprad
+	    print*, "@ Seeing is: ", seeing(fnum)
 
 	    if (verbose) then
                print*, 'Fitted PSF star ', int(psfstars(1,ipsf)), &
@@ -524,9 +700,29 @@ program optimal_phot
           	       optres(istar,1,fnum)=optflux
 	               optres(istar,2,fnum)=opterror
 		    end if
-
 		    if (verbose) print*, 'Opphot flux for star', &
                                  stars(1,istar),'is:',optflux,'+/-',opterror
+
+!                    if (dpos(istar) > 0.0) then
+!                       print*, 'Fitted position of star ', stars(1,istar), &
+!                                sqrt((xpos-xfit)**2.0 + (ypos-yfit)**2.0), &
+!                               'from start position.'
+!		       print*, 'New position of star ',stars(1,istar),':', xfit, yfit
+!                    end if
+                    ! Keep a track on the mean position of the star in all frames.
+!                   if (opt%col(1)%flg == 'OO') then
+!                      work =((opt%x-coff(3)) - &
+!                            (coff(2)/coff(4))*(opt%y-coff(6)))/ &
+!                            (coff(1) - (coff(5)*coff(2)/coff(4)))
+!                      xpos_new(istar) = xpos_new(istar) + work
+!                      ypos_new(istar) = ypos_new(istar) + &
+!                      ((opt%y - coff(5)*work - coff(6))/coff(4))
+                      ! xpos_new(istar)=xpos_new(istar)+opt%x-xoff
+                      ! ypos_new(istar)=ypos_new(istar)+opt%y-yoff
+!                      npos_new(istar)=npos_new(istar)+1
+!                      if (debug) print*, '@ Star is at ', opt%x, opt%y
+!                   end if
+
 		    end if
 
 		    ! In addition to Optimal photometry do aperature photometry as well
@@ -568,7 +764,7 @@ program optimal_phot
 !                          end if
 !                       end if
       	            apres(istar,1,fnum)=apflux
-	                apres(istar,2,fnum)=aperror
+	            apres(istar,2,fnum)=aperror
                     end if
 
 		    if (verbose) print*
@@ -589,26 +785,51 @@ program optimal_phot
 ! ***************************************************************
 ! Write the output files.
 ! ***************************************************************
-!  wformat='(I5," ",F13.4," ",F10.4," ",F7.4)'
+!  ounit=0
+!  wformat='(I5," ",F13.10," ",F12.10," ",F13.4," ",F10.4," ",F7.4)'
 ! Write the optimal photometry output files.
-  if (optimal) then
-     do i=1, nstar
-        do j=1, ntimes
-           print*, i, optres(i,1,j), optres(i,2,j), seeing(j) 
-        end do   
-     end do
-  end if
-
+!  if (optimal) then
+!     do i=1, nstar
+!        ounit = ounit + 1
+!        write(filename,'(I0.3,A4)')i,'.opt'
+!        filename='star_' // filename
+!        open (unit=ounit, file=filename, status='unknown', access='sequential')
+!        write(ounit,*)'# Optimal photometry file created by opphot. Columns are:'
+!        write(ounit,*)'# Frame Number, Time, Half Exposure,   Flux,   Error,    Seeing'
+!        write(ounit,*)'#     (#)     ,(days),    (days)   , (Counts),(Counts), (pixels)'
+!        do j=1, ntimes
+!           write(ounit,wformat)j, times(1,j), times(2,j), optres(i,1,j), optres(i,2,j),&
+!                            seeing(j) 
+!        end do   
+!        close(ounit)
+!     end do
+!  end if
 ! Write the aperature photometry output files.
-  if (aperature) then
-     do i=1, nstar
-        do j=1, ntimes
-           print*, i,apres(i,1,j), apres(i,2,j), seeing(j) 
-        end do   
-     end do
-  end if
+!  ounit=0
+!  if (aperature) then
+!     do i=1, nstar
+!        ounit = ounit + 1
+!        write(filename,'(I0.3,A4)')i,'.dat'
+!        filename='star_' // filename
+!        open (unit=ounit, file=filename, status='unknown', access='sequential')
+!        write(ounit,*)'# Aperature photometry file created by opphot'
+!        write(ounit,*)'# Frame Number, Time, Half Exposure,   Flux,   Error,    Seeing'
+!        write(ounit,*)'#     (#)     ,(days),    (days)   , (Counts),(Counts), (pixels)'
+!        do j=1, ntimes
+!           write(ounit,wformat)j, times(1,j), times(2,j), apres(i,1,j), apres(i,2,j),&
+!                                 seeing(j) 
+!        end do   
+!        close(ounit)
+!     end do
+!  end if
+!  print*
+!  print*
+!  print*, "* Program finished normaly"
+!  if (optimal)   print*, "* Optimal photometry results written to   .opt files"
+!  if (aperature) print*, "* Aperature photometry results written to .dat files"
+!  print*
 
-end program optimal_phot
+end program optimal
 
 !******************************************************************************
 ! printerror - Prints an error if the input FITS file is not properly read.
