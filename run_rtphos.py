@@ -22,6 +22,20 @@ import numpy as np
 import os, time
 import ccdcalib
 from   scipy.optimize import curve_fit
+from   subprocess import Popen, PIPE
+
+##############################################################################
+def dict_of_floats(list_of_strings, num_items):
+    dict_of_floats={}
+    
+    for i in range(num_items):
+        for j in range(num_items):
+            dummy = [float(x) for x in list_of_strings[j].split()]
+            dict_of_floats[j]=dummy[1:3]
+            seeing = dummy[3]
+
+    result = (dict_of_floats, seeing)
+    return (result)
 
 ##############################################################################
 def namesplit(s, leader, trailer):
@@ -191,8 +205,8 @@ def zach_offsets(dataref,data2red):
 
 def write_optphot_init(imdir, comparisons, targets):
 
-    text_file1 = open(imdir+"/psf.cat", "w")
-    text_file2 = open(imdir+"/stars.cat", "w")
+    text_file1 = open(imdir+"psf.cat", "w")
+    text_file2 = open(imdir+"stars.cat", "w")
     text_file1.write("!\n!\n!\n")
     text_file2.write("!\n!\n!\n")
    
@@ -215,9 +229,71 @@ def write_optphot_init(imdir, comparisons, targets):
 
     text_file1.close()
     text_file2.close()
-    print ("Wrote:", imdir+"/psf.cat")
-    print ("Wrote:", imdir+"/stars.cat")
+    print ("Wrote:", imdir+"psf.cat")
+    print ("Wrote:", imdir+"stars.cat")
     return (1)
+
+
+#############################################################################
+def run_photometry(dirs, inputfile):
+
+    os.chdir(dirs['reduced'])  # Move to the reduced image directory
+    p = Popen(["optimal"], stdin=PIPE, stdout=PIPE)
+
+    filename   = inputfile
+    psfpos     = " psf.cat "
+    starpos    = "stars.cat "
+    verbose    = "N"
+    badskyskew = "-1 "
+    badskychi  = "-1 "
+    fwhm       = "2.0 "
+    clip       = "5.0 "
+    aprad      = "10.0 "
+    iopt       = "1 "
+    searchrad  = "5.0 "
+    adu        = "2.0"
+
+    input_txt=[]
+    input_txt.append(filename+psfpos+starpos+verbose)
+    input_txt.append(badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu)
+    print input_txt[0]
+    print input_txt[1]
+
+    data_out = p.communicate(input_txt[0]+"\n"
+                             +input_txt[1]+"\n")[0]
+
+    results=data_out.split("\n")
+    total_records = len(results)-1
+    total_stars=total_records/2
+
+    optimal_data = results[0:total_stars]
+    aperture_data = results[total_stars:total_records]
+
+    print optimal_data
+    print
+    print aperture_data
+    print
+
+    # Gets a float dictionary from a list of results (optimal or aperture)
+    optimal_res=dict_of_floats(optimal_data, total_stars)
+    optimal_stars=optimal_res[0]
+    seeing = optimal_res[1]
+
+    aperture_res=dict_of_floats(aperture_data, total_stars)
+    aperture_stars=aperture_res[0]
+    seeing = aperture_res[1]
+
+    print
+    print optimal_stars
+    print seeing
+
+    print
+    print aperture_stars
+    print seeing
+
+    os.chdir(dirs['data'])  # Move back to the raw data directory
+    return
+
 
 #############################################################################
 
@@ -258,24 +334,28 @@ def seekfits(dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                  #print dateobs, timeobs, exposure, CCDfilter
                  ################################################
 
-                 # now initiate the calibration, offsets and photometry
+                 # Now initiate the calibration, offsets and photometry.
+                 # ccdcalib will either calibrate the image and place the
+                 # calibrated image file in the '/reduced/' directory or
+                 # if the image did not require calibration just copy the image
+                 # to the '/reduced/' directory. In either case the image will
+                 # have a 'c_' prefix to indicate that ccdcalib has seen it.
                  calib_data=ccdcalib.calib(dirs, filename, data2, hdr)
                  data2 = calib_data[0]
                  hdr = calib_data[1]
+                 calib_fname = calib_data[2]
 
                  # find offsets from dataref
                  thisoffset = zach_offsets(dataref,data2)
                  print "Offsets ", thisoffset
 
                  # create optphot init files
-			  ### This needs to be somewhere else. Target and comp files
-			  ### do not have to be created every time a new file is detected.
                  print("Targets here", targets)
-                 t = write_optphot_init(dirs['data'], comparisons, targets)
+                 t = write_optphot_init(dirs['reduced'], comparisons, targets)
                  print "Wrote Opphot init files"
-                 ### RUN OPPHOT ......
-                 #!!!!!!
-                 
+                 # call optimal and do the photometry.
+                 run_photometry(dirs, calib_fname)
+
            before = after
            time.sleep (tsleep)   # Wait for tsleep seconds before repeating
     except KeyboardInterrupt:
@@ -310,8 +390,9 @@ def run_rtphos(xpapoint):
     result = ccdcalib.calib(dirs, ref_filename, dataref, hdr)
     dataref = result[0]
     hdr = result[1]
+    calib_fname = result[2]
 
-    ### return the processed filename - WHY???
+    ### return the processed filename - This is calib_fname but why return it here???
     
     # select and centroid all created regions
     # make lists of xc,yc of comparison stars (name must start with 'C-'

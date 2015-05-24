@@ -915,7 +915,7 @@ def calib(dirs, ref_filename, dataref, hdr_data):
        print "Frame is not flat fielded!"
        print "Proceeding with flat fielding..."
        if os.path.isfile(dirs['reduced']+'masterflat.fits'):   
-          masterdark = pyfits.getdata(dirs['reduced']+'masterflat.fits')
+          masterflat = pyfits.getdata(dirs['reduced']+'masterflat.fits')
           if np.shape(masterflat) != dsize:
              flatcheck = False
              print "WARNING: Masterflat frame is of different size than data frames!"
@@ -940,10 +940,14 @@ def calib(dirs, ref_filename, dataref, hdr_data):
     if darkcheck: hdr_out['DARKCOR'] = (darktxt)
     if flatcheck: hdr_out['FLATCOR'] = (flattxt)
 
-    # Write the output to disk giving the prefix of 'c_' to the calibrated frame.    
-    if biascheck or darkcheck or flatcheck: writefits(dataref, hdr_out, dirs['reduced']+'c_'+ref_filename)
+    # Write the output to disk giving the prefix of 'c_' to the calibrated frame. 
+    fileout = 'c_'+ref_filename
+#    if biascheck or darkcheck or flatcheck: 
+    writefits(dataref, hdr_out, dirs['reduced']+fileout)
+#    else:
+       
 
-    result = (dataref, hdr_out)
+    result = (dataref, hdr_out, fileout)
     return result
 
 if __name__ == "__main__":
