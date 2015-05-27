@@ -69,7 +69,12 @@ def makechecklist(hdr):
     checklist['NAXIS2'] = hdr['NAXIS2']
 
     # Get the filter type from the header
-    if "FILTER" in keylist: checklist['FILTER'] = hdr['FILTER']
+    if "FILTER" in keylist: 
+       checklist['FILTER'] = hdr['FILTER']
+    else:
+       checklist['FILTER']='Invalid'
+       print "WARNING: Filter keyword not found!"
+       print "         This might cause calibration errors!"         
 
     # Get the integration time from the header
     if "EXPOSURE" in keylist:  
@@ -77,12 +82,70 @@ def makechecklist(hdr):
     elif "EXPTIME" in keylist: 
        checklist['EXPOSURE'] = hdr['EXPTIME']
     else:
-       checklist['EXPOSURE'] = 0
+       checklist['EXPOSURE'] = "Invalid"
        print "WARNING: Exposure keyword not found!"
-       print "         This might cause dark subtraction and flat fielding errors!"         
+       print "         This might cause calibration errors!"         
 
-    # Get the Date from the header
-    if "DATE-OBS" in keylist: checklist['DATE'] = hdr['DATE-OBS']
+    # Get the Date & Time from the header
+    if "DATE-OBS" in keylist: 
+       checklist['DATE'] = hdr['DATE-OBS']
+    elif "DATE_OBS" in keylist:
+       checklist['DATE'] = hdr['DATE_OBS']
+    elif "DATE" in keylist:
+       checklist['DATE'] = hdr['DATE']
+    else:
+       checklist['DATE'] = "Invalid"
+       print "WARNING: Date keyword not found!"
+       print "         Data will not be time stamped"
+    # Check to see if DATE string also holds the time
+    if (not "T" in checklist['DATE']):
+       if "TIME" in keylist:
+          checklist['TIME'] = hdr['TIME']
+       elif "UTSTART" in keylist:
+          checklist['TIME'] = hdr['UTSTART']
+       elif "UTC" in keylist:
+          checklist['TIME'] = hdr['UTC']
+       else:
+          checklist['TIME'] = "Invalid"
+          print "WARNING: Time stamp keyword not found!"
+          print "         Data will not be time stamped!"
+    else:
+       datetime = checklist['DATE'].split('T')
+       checklist['DATE'] = datetime[0]
+       checklist['TIME'] = datetime[1]   
+    # Get the Right Ascension from the header
+    if "TEL_RA" in keylist:
+       checklist['RA'] = hdr['TEL_RA']
+    elif "TEL-RA" in keylist:
+       checklist['RA'] = hdr['TEL-RA']
+    elif "OBJCTRA" in keylist:
+       checklist['RA'] = hdr['OBJCTRA']
+    else:
+       checklist['RA'] = "Invalid"
+       print "WARNING: Could not determine R.A. from image header!"
+       print "         Time stamps will be in plain Julian Dates"
+    # Get the Declination from the header
+    if "TEL_DEC" in keylist:
+       checklist['DEC'] = hdr['TEL_DEC']
+    elif "TEL-RA" in keylist:
+       checklist['DEC'] = hdr['TEL-DEC']
+    elif "OBJCTRA" in keylist:
+       checklist['DEC'] = hdr['OBJCTDEC']
+    else:
+       checklist['DEC'] = "Invalid"
+       print "WARNING: Could not determine the Declination from image header!"
+       print "         Time stamps will be in plain Julian Dates"
+   
+    # Check for empty keyword values and if they exist set them to "Invalid"
+    for key, value in checklist.items():
+       if value == "":
+          checklist[key] = "Invalid"   
+
+    # Check if there are any "Invalids" in the checklist
+    if (not "Invalid" in checklist.values()): 
+       print "Headers OK!"
+    else:
+       print "WARNING: Invalid headers were found!"
 
     return checklist
 
@@ -945,7 +1008,6 @@ def calib(dirs, ref_filename, dataref, hdr_data):
 #    if biascheck or darkcheck or flatcheck: 
     writefits(dataref, hdr_out, dirs['reduced']+fileout)
 #    else:
-       
 
     result = (dataref, hdr_out, fileout)
     return result

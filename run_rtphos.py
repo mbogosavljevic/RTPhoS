@@ -22,7 +22,8 @@ import numpy as np
 import os, time
 import ccdcalib
 from   scipy.optimize import curve_fit
-from   subprocess import Popen, PIPE
+from   subprocess import call, Popen, PIPE
+from   astropy.time import time
 
 ##############################################################################
 def dict_of_floats(list_of_strings, num_items):
@@ -130,7 +131,58 @@ def get_comps_fwhm(comparisons, xpapoint):
     return mean_fwhm
 
 #############################################################################
+def barytime(checklist):
 
+    # Deconstruct the Date string from the DATE Keyword
+    date  = checklist['DATE'].split('-')
+    date = " ".join(date)
+    # Deconstruct the Time string from the TIME Keyword
+    time  = checklist['TIME'].split(':')
+    time = " ".join(time)
+    # Deconstruct the RA string from the RA Keyword
+    if (checklist['RA'] != "Invalid"):
+       if ':' in checklist['RA']: ra  = checklist['RA'].split(':')
+       if ' ' in checklist['RA']: ra  = checklist['RA'].split(' ')
+    else:
+       ra = "NaN"
+    ra = " ".join(ra)
+    # Deconstruct the Dec string from the DEC Keyword
+    if (checklist['DEC'] != "Invalid"):
+       if ':' in checklist['DEC']: dec  = checklist['DEC'].split(':')
+       if ' ' in checklist['DEC']: dec  = checklist['DEC'].split(' ')
+    else:
+       dec = "NaN"
+    dec = " ".join(dec)
+    # Get the Exposure time
+    exposure = str(checklist['EXPOSURE'])
+    if exposure=="Invalid": exposure = "0.0"
+
+    equin  = '2000.0'
+    utcorr = '0.0'
+
+#   For Later:
+#   Get Equinox form Header
+#   Get Time Correction from Header
+
+#   The input to barycor should be the following:
+#   equin, rah, ram, ras, decd, decm, decs
+#   year, month, day, hrs, mins, secs, utcorr, exposure
+    datetimeinfo = []
+    inputline1 = equin+" "+" "+ra+  " "+dec
+    inputline2 = date +" "+" "+time+" "+" "+utcorr+" "+" "+exposure
+
+#    print inputline1
+#    print inputline2
+
+    p = Popen(["barycor"], stdin=PIPE, stdout=PIPE)
+
+    time_BDJD = p.communicate(inputline1+"\n"
+                             +inputline2)[0]
+
+    return time_BDJD
+
+
+#############################################################################
 def zach_offsets(dataref,data2red):
 
     import pyfits
@@ -256,8 +308,6 @@ def run_photometry(dirs, inputfile):
     input_txt=[]
     input_txt.append(filename+psfpos+starpos+verbose)
     input_txt.append(badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu)
-    print input_txt[0]
-    print input_txt[1]
 
     data_out = p.communicate(input_txt[0]+"\n"
                              +input_txt[1]+"\n")[0]
@@ -269,11 +319,6 @@ def run_photometry(dirs, inputfile):
     optimal_data = results[0:total_stars]
     aperture_data = results[total_stars:total_records]
 
-    print optimal_data
-    print
-    print aperture_data
-    print
-
     # Gets a float dictionary from a list of results (optimal or aperture)
     optimal_res=dict_of_floats(optimal_data, total_stars)
     optimal_stars=optimal_res[0]
@@ -283,16 +328,10 @@ def run_photometry(dirs, inputfile):
     aperture_stars=aperture_res[0]
     seeing = aperture_res[1]
 
-    print
-    print optimal_stars
-    print seeing
-
-    print
-    print aperture_stars
-    print seeing
+    photometry_result = (optimal_stars, aperture_stars, seeing)
 
     os.chdir(dirs['data'])  # Move back to the raw data directory
-    return
+    return photometry_results
 
 
 #############################################################################
@@ -334,27 +373,53 @@ def seekfits(dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                  #print dateobs, timeobs, exposure, CCDfilter
                  ################################################
 
+                 # First check that all the required header keywords are in
+                 # the FITS file and then get the time stamp for this frame.
+                 # If the RA and DEC of the image are in the headers then
+                 # time will be in Barycentric Dynamical Julian Date. If not 
+                 # then time will be in plain simple Julian Date.
+                 checklist = ccdcalib.makechecklist(hdr)
+
+                 if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":                 
+                    datetime = checklist['DATE']+" "+checklist['TIME']
+                    datetime = time(datetime, format='iso', scale='utc')
+                    time_frame  = datetime.jd
+                    exp = float(checklist['EXPOSURE'])
+                    midexp = exp/2.0
+                    # Make frame time the middle of the exposure
+                    time_frame = time_frame+midexp
+                    time_framerr = midexp   
+                 else:
+                    time_BDJD = barytime(checklist)
+                    frame_time = format(float(time_BDJD[1]), '.15g')
+                    frame_timerr  = format(float(time_BDJD[2]), '.15g')
+
                  # Now initiate the calibration, offsets and photometry.
                  # ccdcalib will either calibrate the image and place the
                  # calibrated image file in the '/reduced/' directory or
                  # if the image did not require calibration just copy the image
                  # to the '/reduced/' directory. In either case the image will
                  # have a 'c_' prefix to indicate that ccdcalib has seen it.
-                 calib_data=ccdcalib.calib(dirs, filename, data2, hdr)
+                 calib_data = ccdcalib.calib(dirs, filename, data2, hdr)
                  data2 = calib_data[0]
                  hdr = calib_data[1]
                  calib_fname = calib_data[2]
 
                  # find offsets from dataref
                  thisoffset = zach_offsets(dataref,data2)
-                 print "Offsets ", thisoffset
+                 print "Offsets: (x,y) ", thisoffset
 
                  # create optphot init files
                  print("Targets here", targets)
                  t = write_optphot_init(dirs['reduced'], comparisons, targets)
                  print "Wrote Opphot init files"
                  # call optimal and do the photometry.
-                 run_photometry(dirs, calib_fname)
+                 frame_photometry = run_photometry(dirs, calib_fname)
+
+                 print "============================================"
+                 print "Frame time: ", time_frame
+                 print
+                 print "Photometry Results: ",frame_photometry
 
            before = after
            time.sleep (tsleep)   # Wait for tsleep seconds before repeating
@@ -379,10 +444,19 @@ def run_rtphos(xpapoint):
     flat_dir = current_dir+"/flat/"    #  -""-
     reduced_dir = data_dir+"/reduced/" #  -""-
     if not os.path.exists(reduced_dir): os.makedirs(reduced_dir)
+    # Create the symbolic links required for running barycor.f90
+    # WARNING: The links are hardwired into the code. This should be made
+    # such that the code checks to see if the links are true. If they are
+    # proceed as normal otherwise return just Julian Days and not BDJD.
+    os.chdir(reduced_dir)
+    call(['ln', '-s', '/opt/star-kapuahi/etc/jpleph.dat', 'JPLEPH'])
+    call(['ln', '-s', '/home/zac/Software/Ark/data/leap.dat', 'leapdat'])
     os.chdir(data_dir) # Move back to the data directory
+
     # Make a dictionary with all the required directories
     dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, 'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir}
 
+    # This is where the pipiline looks at the data for the first time!
     dataref, hdr = pyfits.getdata(ref_filename, header=True)     
     print("... Working ...")
 
