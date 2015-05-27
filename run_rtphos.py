@@ -17,13 +17,14 @@
 
 import pyregion
 import astropy.io.fits as pyfits
+from   astropy.time import Time
 import pyds9
 import numpy as np
 import os, time
 import ccdcalib
 from   scipy.optimize import curve_fit
 from   subprocess import call, Popen, PIPE
-from   astropy.time import time
+
 
 ##############################################################################
 def dict_of_floats(list_of_strings, num_items):
@@ -255,28 +256,31 @@ def zach_offsets(dataref,data2red):
 
 #############################################################################
 
-def write_optphot_init(imdir, comparisons, targets):
+def write_optphot_init(imdir, comparisons, targets, thisoffset):
 
     text_file1 = open(imdir+"psf.cat", "w")
     text_file2 = open(imdir+"stars.cat", "w")
     text_file1.write("!\n!\n!\n")
     text_file2.write("!\n!\n!\n")
    
+    yoff = float(thisoffset[0])
+    xoff = float(thisoffset[1])
+
     nt = len(targets)
     print("Targets nt:", nt)
     for i in range(0,nt):
         x = targets[i][0][0]
         y = targets[i][0][1]
         # write the target as the first source in stars.cat
-        text_file2.write('%-5s %8.1f %8.1f \n' % ("1", x, y) )
+        text_file2.write('%-5s %8.1f %8.1f \n' % ("1", x+xoff, y+yoff) )
 
     nc = len(comparisons)
     print("Comparisons nc:", nc)
     for k in range(0,nc):
         x = comparisons[k][0][0]
         y = comparisons[k][0][1]
-        text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x, y) )
-        text_file2.write('%-5i %8.1f %8.1f \n' % (k+2, x, y) )
+        text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x+xoff, y+yoff) )
+        text_file2.write('%-5i %8.1f %8.1f \n' % (k+2, x+xoff, y+yoff) )
         #print('%-5i %8.1f %8.1f' % (k+1, x, y) )
 
     text_file1.close()
@@ -312,6 +316,9 @@ def run_photometry(dirs, inputfile):
     data_out = p.communicate(input_txt[0]+"\n"
                              +input_txt[1]+"\n")[0]
 
+    print input_txt[0]
+    print input_txt[1]
+
     results=data_out.split("\n")
     total_records = len(results)-1
     total_stars=total_records/2
@@ -331,7 +338,7 @@ def run_photometry(dirs, inputfile):
     photometry_result = (optimal_stars, aperture_stars, seeing)
 
     os.chdir(dirs['data'])  # Move back to the raw data directory
-    return photometry_results
+    return photometry_result
 
 
 #############################################################################
@@ -382,13 +389,13 @@ def seekfits(dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
 
                  if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":                 
                     datetime = checklist['DATE']+" "+checklist['TIME']
-                    datetime = time(datetime, format='iso', scale='utc')
+                    datetime = Time(datetime, format='iso', scale='utc')
                     time_frame  = datetime.jd
                     exp = float(checklist['EXPOSURE'])
                     midexp = exp/2.0
                     # Make frame time the middle of the exposure
-                    time_frame = time_frame+midexp
-                    time_framerr = midexp   
+                    frame_time = format(time_frame+midexp, '.15g')
+                    frame_timerr = format(midexp/86400.0, '.15g')   
                  else:
                     time_BDJD = barytime(checklist)
                     frame_time = format(float(time_BDJD[1]), '.15g')
@@ -411,13 +418,13 @@ def seekfits(dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
 
                  # create optphot init files
                  print("Targets here", targets)
-                 t = write_optphot_init(dirs['reduced'], comparisons, targets)
+                 t = write_optphot_init(dirs['reduced'], comparisons, targets, thisoffset)
                  print "Wrote Opphot init files"
                  # call optimal and do the photometry.
                  frame_photometry = run_photometry(dirs, calib_fname)
 
                  print "============================================"
-                 print "Frame time: ", time_frame
+                 print "Frame time: ", frame_time, "+/-", frame_timerr
                  print
                  print "Photometry Results: ",frame_photometry
 
@@ -496,8 +503,8 @@ def run_rtphos(xpapoint):
     sources    = pyregion.parse(sourcelist)
     n = len(sources)
     print("I see "+ str(n) + " sources")
+
     # find out which are the comparison stars (they must have "C-" in name)
- 
     comparisons  = [(s.coord_list,s.comment) for s in sources if "C-" in s.comment]
     nc = len(comparisons)
     targets =  [(s.coord_list,s.comment) for s in sources if not("C-" in s.comment)]
