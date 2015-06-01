@@ -494,7 +494,7 @@ def makedark(dsize, exposure, dirs):
        masterdark = 0
        print "WARNING: No dark frames found data will not be dark calibrated!"
        os.chdir(prev_dir)
-       return (darckcheck, masterdark)
+       return (darkcheck, masterdark)
 
     # Check to see that all dark frames are of the same size and make a list
     # of all frames of the same size.
