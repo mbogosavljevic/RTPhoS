@@ -105,6 +105,8 @@ def makechecklist(hdr):
           checklist['TIME'] = hdr['UTSTART']
        elif "UTC" in keylist:
           checklist['TIME'] = hdr['UTC']
+       elif "TIME-OBS" in keylist:
+          checklist['TIME'] = hdr['TIME-OBS']
        else:
           checklist['TIME'] = "Invalid"
           print "WARNING: Time stamp keyword not found!"
