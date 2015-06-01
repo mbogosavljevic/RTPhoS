@@ -666,6 +666,7 @@ def makeflat(dsize, obsfilter, dirs):
     flatnum = len(flatfiles)
     if flatnum==0:
        flatcheck = False
+       masterflat = 1
        print "WARNING: No flat field frames found data will not be flat fielded!"
        return masterflat
 
