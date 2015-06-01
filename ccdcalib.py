@@ -386,6 +386,7 @@ def makebias(dsize, dirs):
     # Check to see that bias directory exits. If it does not exit bias calibration.
     if not os.path.exists(dirs['bias']):
        print "WARNING: Bias frames directory does not exist!"
+       print (dirs['bias'])
        print "         Bias calibration aborted!"
        biascheck = False
        masterbias = 0
@@ -1017,19 +1018,21 @@ if __name__ == "__main__":
 #  For testing    
 
    # Set up input and output directories
-   current_dir = os.path.abspath(os.curdir)
-   bias_dir = current_dir+"/bias/"
-   dark_dir = current_dir+"/dark/"
-   flat_dir = current_dir+"/flat/"
-   data_dir = current_dir+"/data/"
-   reduced_dir = data_dir+"/reduced/"
-   if not os.path.exists(reduced_dir): os.makedirs(reduced_dir)
+   #current_dir = os.path.abspath(os.curdir)
+   #bias_dir = current_dir+"/bias/"
+   #dark_dir = current_dir+"/dark/"
+   #flat_dir = current_dir+"/flat/"
+   #data_dir = current_dir+"/data/"
+   #reduced_dir = data_dir+"/reduced/"
+   #if not os.path.exists(reduced_dir): os.makedirs(reduced_dir)
 
    # Make a dictionary with all the directories
-   dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, 'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir}
+   #dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, 'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir}
 
-   ref_filename = dirs['data']+'J1753.fits'
-   dataref, hdr_data = pyfits.getdata(ref_filename, header=True)     
+   #ref_filename = dirs['data']+'J1753.fits'
+   #dataref, hdr_data = pyfits.getdata(ref_filename, header=True)     
+
+
    calib(dirs, ref_filename, dataref, hdr_data)
    print "Calibration Done!"
 

@@ -347,6 +347,7 @@ def seekfits(dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
 # requires zach_offsets, write_optphot_init
 
     print("IMDIR: "+dirs['data'])
+    print(dirs['bias'])
 
     before = dict ([(f, None) for f in os.listdir(dirs['data'])])
     
@@ -444,8 +445,7 @@ def run_rtphos(xpapoint):
     # Set up input and output directories
     path, filename = os.path.split(ref_filename)    
     data_dir = path # Set data directory as the directory of the DS9 image.
-    os.chdir("..")  # Move up a directory
-    current_dir = os.path.abspath(os.curdir)
+    current_dir = os.path.abspath(os.path.join(data_dir, os.pardir))
     bias_dir = current_dir+"/bias/"    # Ultimately these dirs need to be set by
     dark_dir = current_dir+"/dark/"    # the user using a DS9 input window.
     flat_dir = current_dir+"/flat/"    #  -""-
@@ -456,8 +456,8 @@ def run_rtphos(xpapoint):
     # such that the code checks to see if the links are true. If they are
     # proceed as normal otherwise return just Julian Days and not BDJD.
     os.chdir(reduced_dir)
-    call(['ln', '-s', '/opt/star-kapuahi/etc/jpleph.dat', 'JPLEPH'])
-    call(['ln', '-s', '/home/zac/Software/Ark/data/leap.dat', 'leapdat'])
+    call(['ln', '-s', '/home/milan/RTPhoS/Timing/jpleph.dat', 'JPLEPH'])
+    call(['ln', '-s', '/home/milan/RTPhoS/Timing/leap.dat', 'leapdat'])
     os.chdir(data_dir) # Move back to the data directory
 
     # Make a dictionary with all the required directories
