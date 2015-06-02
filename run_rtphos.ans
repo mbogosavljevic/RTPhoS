@@ -1,4 +1,26 @@
+param rtphosdef
+ pathdefs    entry {File containing new settings}    "/data/zac/Projects/Pipeline/rtphos.defaults" 
+ pathdata    entry {Raw data frames}		     "/data/zac/Projects/Pipeline/data"            
+ pathbias    entry {Bias frames for calibration}     "/data/zac/Projects/Pipeline/bias"            
+ pathdark    entry {Dark frames for calibration}     "/data/zac/Projects/Pipeline/dark"            
+ pathflat    entry {Flat frames for calibration}     "/data/zac/Projects/Pipeline/flat"            
+ stringbias  entry {bias frames wildcard}	     "*bias*"                                      
+ stringdark  entry {dark frames wildcard}	     "*dark*"                                      
+ stringflat  entry {flat frames wildcard}	     "*flat*"                                      
+ namebias    entry {Masterbias filename}	     "masterbias.fits"                             
+ namedark    entry {Masterdark filename}	     "massterdark.fits"                            
+ nameflat    entry {Masterflat filename}	     "masterflat.fits"                             
+ filejpl     entry {path to JPL Ephemeris file}	     "/home/milan/RTPhoS/Timing/jpleph.dat"        
+ fileleap    entry {path to leap seconds data file}  "/home/milan/RTPhoS/Timing/leap.dat"          
+ cprefix     entry {Prefix for calibrated files}     "c_"                                          
+endparam
+
+RTPhoS Settings
+*
+menu
+$param(rtphosdef); write_rtphos_defaults.py $pathdefs $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $filejpl $fileleap $cprefix | $text
+
 RUN RTPHOS
 *
 menu
-xterm -sb -sl 2000 -e /home/milan/RTPhoS/run_rtphos.py $xpa_method 2>&1 | tee >! RTPhoS-log.txt
+xterm -sb -sl 2000 -e "/home/milan/RTPhoS/run_rtphos.py $xpa_method ; read dummy"
