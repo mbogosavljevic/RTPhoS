@@ -15,4 +15,3 @@ stars.cat                            # positions for target stars
 /home/milan/RTPhoS/Timing/leap.dat   # path to leap seconds data file
 c_                                   # Prefix for calibrated files
 Y                                    # Verbose output switch
-
