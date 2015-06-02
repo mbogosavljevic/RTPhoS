@@ -1,0 +1,18 @@
+/data/zac/Projects/Pipeline/data     # Raw data frames
+/data/zac/Projects/Pipeline/bias     # Bias frames for calibration
+/data/zac/Projects/Pipeline/dark     # Dark frames for calibration
+/data/zac/Projects/Pipeline/flat     # Flat frames for calibration
+*bias*                               # bias frames wildcard
+*dark*                               # dark frames wildcard
+*flat*                               # flat frames wildcard
+masterbias.fits                      # Masterbias filename
+massterdark.fits                     # Masterdark filename
+masterflat.fits                      # Masterflat filename
+psf.cat                              # positions for PSF stars
+stars.cat                            # positions for target stars
+4.2                                  # FWHM of stars on reference frame
+/home/milan/RTPhoS/Timing/jpleph.dat # path to JPL Ephemeris file
+/home/milan/RTPhoS/Timing/leap.dat   # path to leap seconds data file
+c_                                   # Prefix for calibrated files
+Y                                    # Verbose output switch
+
