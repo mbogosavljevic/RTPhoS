@@ -10,8 +10,17 @@ massterdark.fits                     # Masterdark filename
 masterflat.fits                      # Masterflat filename
 psf.cat                              # positions for PSF stars
 stars.cat                            # positions for target stars
-4.2                                  # FWHM of stars on reference frame
 /home/milan/RTPhoS/Timing/jpleph.dat # path to JPL Ephemeris file
 /home/milan/RTPhoS/Timing/leap.dat   # path to leap seconds data file
 c_                                   # Prefix for calibrated files
 Y                                    # Verbose output switch
+5.0                                  # Search radius for optimal centroiding
+10.0                                 # Aperature radius for photometry
+5.0                                  # PSF Clipping radius for optimal photom
+1                                    # Star number to optimize photometry for
+-1                                   # Sky profile skew for optimal photometry
+-1                                   # Sky fitting switch for optimal photometry
+6.2                                  # Instrument Gain e-/ADU
+
+
+
