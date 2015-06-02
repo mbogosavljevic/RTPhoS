@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # M. Bogosavljevic, AOB, June 2015
 
-def write_rtphos_defaults( pathdefs, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, filejpl, fileleap, cprefix):
+def write_rtphos_defaults( pathdefs, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, filejpl, fileleap, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose):
  
     defs_file = open(pathdefs, "w")
 
@@ -19,6 +19,14 @@ def write_rtphos_defaults( pathdefs, pathdata, pathbias, pathdark, pathflat, str
     defs_file.write(filejpl    + "     # path to JPL Ephemeris file\n")	     
     defs_file.write(fileleap   + "     # path to leap seconds data file\n")
     defs_file.write(cprefix    + "     # Prefix for calibrated files\n")
+    defs_file.write(sradius    + "     # Search radius for optimal centroiding\n")	
+    defs_file.write(aradius    + "     # Aperature radius for photometry\n")	
+    defs_file.write(cradius    + "     # PSF Clipping radius for optimal photom\n")	
+    defs_file.write(starnumber + "     # Star number to optimize photometry for\n")	
+    defs_file.write(skyskew    + "     # Sky profile skew for optimal photometry\n")	
+    defs_file.write(skyfit     + "     # Sky fitting switch for optimal photometry\n")	
+    defs_file.write(gain       + "     # Instrument Gain e-/ADU\n")	
+    defs_file.write(verbose    + "     # Verbose output switch\n")	
 
     defs_file.close()
 
@@ -39,5 +47,13 @@ if  __name__ == "__main__":
     filejpl        = sys.argv[12]
     fileleap       = sys.argv[13]
     cprefix        = sys.argv[14]
+    sradius        = sys.argv[15]
+    aradius        = sys.argv[16]
+    cradius        = sys.argv[17]
+    starnumber     = sys.argv[18]
+    skyskew        = sys.argv[19]
+    skyfit         = sys.argv[20]
+    gain           = sys.argv[21]
+    verbose        = sys.argv[22]
 
-    write_rtphos_defaults( pathdefs, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, filejpl, fileleap, cprefix)
+    write_rtphos_defaults( pathdefs, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, filejpl, fileleap, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose)
