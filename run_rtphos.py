@@ -24,7 +24,7 @@ import os, time
 import ccdcalib
 from   scipy.optimize import curve_fit
 from   subprocess import call, Popen, PIPE
-
+import matplotlib.pyplot as plt
 
 ##############################################################################
 def dict_of_floats(list_of_strings, num_items):
@@ -316,8 +316,8 @@ def run_photometry(dirs, inputfile):
     data_out = p.communicate(input_txt[0]+"\n"
                              +input_txt[1]+"\n")[0]
 
-    print input_txt[0]
-    print input_txt[1]
+#    print input_txt[0]
+#    print input_txt[1]
 
     results=data_out.split("\n")
     total_records = len(results)-1
@@ -343,97 +343,158 @@ def run_photometry(dirs, inputfile):
 
 #############################################################################
 
-def seekfits(dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
+class seekfits():
 # requires zach_offsets, write_optphot_init
-
-    print("IMDIR: "+dirs['data'])
-    print(dirs['bias'])
-
-    before = dict ([(f, None) for f in os.listdir(dirs['data'])])
     
-    # counter needed just to print out progress
-    count = 0.
-    
-    try:
-      while 1:
-           count = count + 1
-           print int(count), "*LISTENING*", dirs['data'], time.strftime('%X %x %Z')
-           after = dict ([(f, None) for f in os.listdir(dirs['data'])])
-           added = [f for f in after if not f in before]
+    #Suppose we know the x range
+    min_x = 0
+    max_x = 10
 
-           if added: 
-             print "Added files: ", ", ".join (added)
-             for filein in enumerate(added):                  
-               # check if it is a fits file
-               filename = dirs['data']+'/'+filein[1] 
-               print filename
-               # WARNING - hardcoded the '.fits' or '.fit' extensions
-               if (filename.endswith('.fits') or filename.endswith('.fit')):
-                 # Can load both data and header with this trick
-                 data2, hdr = pyfits.getdata(filename, header=True)              
-                 print("I read image: "+filename)
+    def on_launch(self, dirs):
+        #Set up plot
+        self.figure, self.ax = plt.subplots()
+        self.lines, = self.ax.plot([],[], 'o')
+#        self.ax.errorbar([],[],yerr=[])
+#        self.lines, = self.ax.errorbar([],[],[],[],fmt='o')
+#        self.line, (down, up), verts = self.ax.errorbar([],[],yerr=[],ftm='o')
+        #Autoscale on unknown axis and known lims on the other
+        self.ax.set_autoscaley_on(True)
+        self.ax.set_xlim(self.min_x, self.max_x)
+        #Other stuff
+        self.ax.grid()
+        self.ax.set_xlabel('Time')
+        self.ax.set_ylabel('Counts')
+        print("IMDIR: "+dirs['data'])
 
-                 # Get Observation Header for image and display it
-                 #dateobs     = hdr['DATE-OBS']
-                 #timeobs     = hdr['TIME-OBS']
-                 #exposure    = hdr['EXPTIME']
-                 #CCDfilter   = hdr['FILTER']
-                 #print dateobs, timeobs, exposure, CCDfilter
-                 ################################################
+    def on_running(self, xdata, ydata, yerror):
+        #Update data (with the new _and_ the old points)
+#        self.lines, = self.ax.plot(xdata, ydata, 'o')
+#        self.ax.errorbar(xdata, ydata, yerr=yerror)
+#        self.lines, = self.ax.plot(xdata,ydata, 'o')
+        self.lines.set_xdata(xdata)
+        self.lines.set_ydata(ydata)
+#        down.set_ydata()
+#    bottoms.set_ydata(y - yerr)
+#    tops.set_ydata(y + yerr)
 
-                 # First check that all the required header keywords are in
-                 # the FITS file and then get the time stamp for this frame.
-                 # If the RA and DEC of the image are in the headers then
-                 # time will be in Barycentric Dynamical Julian Date. If not 
-                 # then time will be in plain simple Julian Date.
-                 checklist = ccdcalib.makechecklist(hdr)
+        #Need both of these in order to rescale
+        self.ax.relim()
+        self.ax.autoscale_view()
+        #We need to draw *and* flush
+        self.figure.canvas.draw()
+        self.figure.canvas.flush_events()
 
-                 if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":                 
-                    datetime = checklist['DATE']+" "+checklist['TIME']
-                    datetime = Time(datetime, format='iso', scale='utc')
-                    time_frame  = datetime.jd
-                    exp = float(checklist['EXPOSURE'])
-                    midexp = exp/2.0
-                    # Make frame time the middle of the exposure
-                    frame_time = format(time_frame+midexp, '.15g')
-                    frame_timerr = format(midexp/86400.0, '.15g')   
-                 else:
-                    time_BDJD = barytime(checklist)
-                    frame_time = format(float(time_BDJD[1]), '.15g')
-                    frame_timerr  = format(float(time_BDJD[2]), '.15g')
 
-                 # Now initiate the calibration, offsets and photometry.
-                 # ccdcalib will either calibrate the image and place the
-                 # calibrated image file in the '/reduced/' directory or
-                 # if the image did not require calibration just copy the image
-                 # to the '/reduced/' directory. In either case the image will
-                 # have a 'c_' prefix to indicate that ccdcalib has seen it.
-                 calib_data = ccdcalib.calib(dirs, filename, data2, hdr)
-                 data2 = calib_data[0]
-                 hdr = calib_data[1]
-                 calib_fname = calib_data[2]
+    def __call__(self, dataref, dirs, tsleep, comparisons, targets, psf_fwhm ):
+        self.on_launch(dirs)
+        xdata = []
+        ydata = []
+        xerror = []
+        yerror = []
 
-                 # find offsets from dataref
-                 thisoffset = zach_offsets(dataref,data2)
-                 print "Offsets: (x,y) ", thisoffset
+        before = dict ([(f, None) for f in os.listdir(dirs['data'])])
 
-                 # create optphot init files
-                 print("Targets here", targets)
-                 t = write_optphot_init(dirs['reduced'], comparisons, targets, thisoffset)
-                 print "Wrote Opphot init files"
-                 # call optimal and do the photometry.
-                 frame_photometry = run_photometry(dirs, calib_fname)
+        # counter needed just to print out progress
+        count = 0
 
-                 print "============================================"
-                 print "Frame time: ", frame_time, "+/-", frame_timerr
-                 print
-                 print "Photometry Results: ",frame_photometry
+        try:
+           while 1:
+                print "*LISTENING*", dirs['data'], time.strftime('%X %x %Z')
+                after = dict ([(f, None) for f in os.listdir(dirs['data'])])
+                added = [f for f in after if not f in before]
 
-           before = after
-           time.sleep (tsleep)   # Wait for tsleep seconds before repeating
-    except KeyboardInterrupt:
-     pass
+                if added: 
+                  count = count + 1             
+                  print "Added files: ", ", ".join (added)
+                  for filein in added:                  
+                     # check if it is a fits file
+                     filename = dirs['data']+'/'+filein
+                     print filename
+                     # WARNING - hardcoded the '.fits' or '.fit' extensions
+                     if (filename.endswith('.fits') or filename.endswith('.fit')):
+                        # Can load both data and header with this trick
+                        data2, hdr = pyfits.getdata(filename, header=True)              
+                        print("I read image: "+filename)
 
+                        # First check that all the required header keywords are in
+                        # the FITS file and then get the time stamp for this frame.
+                        # If the RA and DEC of the image are in the headers then
+                        # time will be in Barycentric Dynamical Julian Date. If not 
+                        # then time will be in plain simple Julian Date.
+                        checklist = ccdcalib.makechecklist(hdr)
+
+                        if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":                 
+                           datetime = checklist['DATE']+" "+checklist['TIME']
+                           datetime = Time(datetime, format='iso', scale='utc')
+                           time_frame  = datetime.jd
+                           exp = float(checklist['EXPOSURE'])
+                           midexp = exp/2.0
+                           # Make frame time the middle of the exposure
+                           frame_time = format(time_frame+midexp, '.15g')
+                           frame_timerr = format(midexp/86400.0, '.15g')   
+                        else:
+                           time_BDJD = barytime(checklist)
+                           frame_time = format(float(time_BDJD[1]), '.15g')
+                           frame_timerr  = format(float(time_BDJD[2]), '.15g')
+
+                        # Now initiate the calibration, offsets and photometry.
+                        # ccdcalib will either calibrate the image and place the
+                        # calibrated image file in the '/reduced/' directory or
+                        # if the image did not require calibration just copy the image
+                        # to the '/reduced/' directory. In either case the image will
+                        # have a 'c_' prefix to indicate that ccdcalib has seen it.
+                        calib_data = ccdcalib.calib(dirs, filename, data2, hdr)
+                        (data2, hdr, calib_fname) = calib_data
+
+                        # find offsets from dataref
+                        thisoffset = zach_offsets(dataref,data2)
+                        print "Offsets: (x,y) ", thisoffset
+
+                        # create optphot init files
+                        print("Targets here", targets)
+                        t = write_optphot_init(dirs['reduced'], comparisons, targets, thisoffset)
+                        print "Wrote Opphot init files"
+                        # call optimal and do the photometry.
+                        frame_photometry = run_photometry(dirs, calib_fname)
+
+                        # Deconstruct the photometry results from optimal.f90
+                        (optimaldict, aperatdict, seeing) = frame_photometry
+                        optimalist  = optimaldict.values()
+                        aperatlist  = aperatdict.values()
+
+                        # Screen output
+                        print "============================================"
+                        print "Filename: ", filename
+                        print "Frame time: ", frame_time, "+/-", frame_timerr
+                        print
+                        print "Optimal Photometry Results:"
+                        for i in range(0,len(optimalist)):
+                            print "Target",i,":",optimalist[i][0],"+/-",optimalist[i][1]
+                        print "------------------------------"
+                        print "Aperature Photometry Results:"
+                        for i in range(0,len(aperatlist)):
+                            print "Target",i,":",aperatlist[i][0],"+/-",aperatlist[i][1]
+                        print
+
+                        x = count
+                        xdata.append(x)
+                        ydata.append(optimalist[1][0])
+
+                        xer = 1
+                        xerror.append(xer)
+                        yerror.append(optimalist[1][1])
+
+                        self.on_running(xdata, ydata, yerror)
+
+                before = after
+                time.sleep(tsleep)   # Wait for tsleep seconds before repeating
+
+        except KeyboardInterrupt:
+           pass
+
+        return # xdata, ydata
+
+#############################################################################
 def run_rtphos(xpapoint):
 # requires get_comps_fwhm, seekfits
 
@@ -469,9 +530,7 @@ def run_rtphos(xpapoint):
 
     # Check image calibration and calibrate if required.   
     result = ccdcalib.calib(dirs, ref_filename, dataref, hdr)
-    dataref = result[0]
-    hdr = result[1]
-    calib_fname = result[2]
+    (dataref, hdr, calib_fname) = result
 
     ### return the processed filename - This is calib_fname but why return it here???
     
@@ -526,13 +585,14 @@ def run_rtphos(xpapoint):
     psf_fwhm = get_comps_fwhm(comparisons, xpapoint)
     print "Found PSF FWHM:",  ("%.2f" % psf_fwhm)
 
-    # WARNING - HARDCODING - deal with optional parameter later
-    # take 3 seconds default sleep time
-    tsleep = 3 
-    seekfits(dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
+    # Do the photometry
+    tsleep = 3                    # Arbitrary time delay
+    photometry = seekfits()
+    photometry(dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
     
 if  __name__ == "__main__":
 
     import sys
+    plt.ion()
     xpapoint       = sys.argv[1]
     run_rtphos(xpapoint)
