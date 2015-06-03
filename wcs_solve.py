@@ -6,8 +6,6 @@
 # filename - xxxx.fits, the fits file itself
 
 import os
-import shlex
-from subprocess import call
 
 def wcs_solve(path, filename):
  
