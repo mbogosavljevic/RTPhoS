@@ -1,5 +1,6 @@
 param rtphosdef
  pathdefs    entry {File containing new settings}    "/home/milan/Pipeline/rtphos.defaults" 
+ pathdefs    entry {Logfile}	                     "/home/milan/Pipeline/rtphos.log"
  pathdata    entry {Raw data frames}		     "/home/milan/Pipeline/data"            
  pathbias    entry {Bias frames for calibration}     "/home/milan/Pipeline/bias"            
  pathdark    entry {Dark frames for calibration}     "/home/milan/Pipeline/dark"            

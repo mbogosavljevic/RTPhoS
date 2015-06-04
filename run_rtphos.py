@@ -263,8 +263,8 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
     text_file1.write("!\n!\n!\n")
     text_file2.write("!\n!\n!\n")
    
-    yoff = float(thisoffset[0])
-    xoff = float(thisoffset[1])
+    xoff = float(thisoffset[0])
+    yoff = float(thisoffset[1])
 
     nt = len(targets)
     print("Targets nt:", nt)
@@ -272,15 +272,15 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
         x = targets[i][0][0]
         y = targets[i][0][1]
         # write the target as the first source in stars.cat
-        text_file2.write('%-5s %8.1f %8.1f \n' % ("1", x+xoff, y+yoff) )
+        text_file2.write('%-5s %8.1f %8.1f \n' % ("1", x-xoff, y-yoff) )
 
     nc = len(comparisons)
     print("Comparisons nc:", nc)
     for k in range(0,nc):
         x = comparisons[k][0][0]
         y = comparisons[k][0][1]
-        text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x+xoff, y+yoff) )
-        text_file2.write('%-5i %8.1f %8.1f \n' % (k+2, x+xoff, y+yoff) )
+        text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x-xoff, y-yoff) )
+        text_file2.write('%-5i %8.1f %8.1f \n' % (k+2, x-xoff, y-yoff) )
         #print('%-5i %8.1f %8.1f' % (k+1, x, y) )
 
     text_file1.close()
