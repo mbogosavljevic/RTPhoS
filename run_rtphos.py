@@ -464,16 +464,15 @@ class seekfits():
 
                         # Screen output
                         print "============================================"
-                        print "Filename: ", filename
-                        print "Frame time: ", frame_time, "+/-", frame_timerr
-                        print
-                        print "Optimal Photometry Results:"
+                        print "FILENAME ", filename
+                        print "FRAME_TIME ", frame_time, frame_timerr, count, len(optimalist)
+                        #print "Optimal Photometry Results:"
                         for i in range(0,len(optimalist)):
-                            print "Target",i,":",optimalist[i][0],"+/-",optimalist[i][1]
+                            print "OPT_STAR ", i+1, optimalist[i][0], optimalist[i][1], seeing
                         print "------------------------------"
-                        print "Aperature Photometry Results:"
+                        #print "Aperature Photometry Results:"
                         for i in range(0,len(aperatlist)):
-                            print "Target",i,":",aperatlist[i][0],"+/-",aperatlist[i][1]
+                            print "APER_STAR ", i+1, aperatlist[i][0], aperatlist[i][1], seeing
                         print
 
                         x = count
@@ -517,8 +516,8 @@ def run_rtphos(xpapoint):
     # such that the code checks to see if the links are true. If they are
     # proceed as normal otherwise return just Julian Days and not BDJD.
     os.chdir(reduced_dir)
-    call(['ln', '-s', '/home/milan/RTPhoS/Timing/jpleph.dat', 'JPLEPH'])
-    call(['ln', '-s', '/home/milan/RTPhoS/Timing/leap.dat', 'leapdat'])
+    call(['ln', '-s', '/opt/star-kapuahi/etc/jpleph.dat', 'JPLEPH'])
+    call(['ln', '-s', '/home/zac/Software/Ark/data/leap.dat', 'leapdat'])
     os.chdir(data_dir) # Move back to the data directory
 
     # Make a dictionary with all the required directories
