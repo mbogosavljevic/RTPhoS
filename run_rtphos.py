@@ -25,6 +25,11 @@ import ccdcalib
 from   scipy.optimize import curve_fit
 from   subprocess import call, Popen, PIPE
 import matplotlib.pyplot as plt
+import f2n
+import sys
+
+# NOTE: where else can we put this?
+sys.path.append("~/pythoncode/f2n/f2n") # The directory that contains f2n.py and f2n_fonts !
 
 ##############################################################################
 def dict_of_floats(list_of_strings, num_items):
@@ -54,6 +59,22 @@ def gauss(x, *p):
 
 ##############################################################################
 
+def make_png(dirs, ref_filename, data, rbin):
+# requires f2n installed
+
+    frame_name = os.path.splitext(os.path.basename(ref_filename))[0]
+    png_image_name = dirs['png'] + frame_name + ".png"
+    png_image = f2n.f2nimage(numpyarray=data)  # give the image data to f2n class
+    png_image.setzscale("flat","flat")  # works best to my liking
+    png_image.rebin(rbin)
+    png_image.makepilimage("lin")       # linear image scaling.
+    # we can play with marking the star and comparisons in the image, like so
+    # png_image.drawcircle(112, 101, r=15) 
+    # TBD later, for now just label the frame
+    png_image.writetitle(frame_name, colour=(200, 200, 0))
+    png_image.tonet(png_image_name)     # write the png.
+
+    
 def fwhm_from_star(image):
 # requires gauss
 #   Calculate the azimuthal radial profile.
@@ -509,8 +530,12 @@ def run_rtphos(xpapoint):
     bias_dir = current_dir+"/bias/"    # Ultimately these dirs need to be set by
     dark_dir = current_dir+"/dark/"    # the user using a DS9 input window.
     flat_dir = current_dir+"/flat/"    #  -""-
-    reduced_dir = data_dir+"/reduced/" #  -""-
+    reduced_dir  = data_dir+"/reduced/" #  -""-
+    png_dir      = data_dir+"/png/"
+
     if not os.path.exists(reduced_dir): os.makedirs(reduced_dir)
+    if not os.path.exists(png_dir): os.makedirs(png_dir)
+
     # Create the symbolic links required for running barycor.f90
     # WARNING: The links are hardwired into the code. This should be made
     # such that the code checks to see if the links are true. If they are
@@ -521,7 +546,8 @@ def run_rtphos(xpapoint):
     os.chdir(data_dir) # Move back to the data directory
 
     # Make a dictionary with all the required directories
-    dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, 'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir}
+    dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, \
+            'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir, 'png':png_dir}
 
     # This is where the pipiline looks at the data for the first time!
     dataref, hdr = pyfits.getdata(ref_filename, header=True)     
@@ -530,8 +556,6 @@ def run_rtphos(xpapoint):
     # Check image calibration and calibrate if required.   
     result = ccdcalib.calib(dirs, ref_filename, dataref, hdr)
     (dataref, hdr, calib_fname) = result
-
-    ### return the processed filename - This is calib_fname but why return it here???
     
     # select and centroid all created regions
     # make lists of xc,yc of comparison stars (name must start with 'C-'
@@ -555,8 +579,13 @@ def run_rtphos(xpapoint):
 
     win.set("regions format ds9")
     win.set("regions save "+ ref_filename + ".reg")
-    win.set("saveimage jpeg " + ref_filename + ".jpg 75 ")
-    
+
+    #win.set("saveimage jpeg " + ref_filename + ".jpg 75 ")
+    # Instead of using win.set, which saves the current screen in DS9 
+    # and has a number of limitations and flaws, I will use f2n
+    # which I wrapped with some settings in make_png, 
+    # incorporated for all frames in ccdcalib.py
+   
     sourcelist = win.get("regions selected") 
     sources    = pyregion.parse(sourcelist)
     n = len(sources)

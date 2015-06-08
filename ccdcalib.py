@@ -43,6 +43,7 @@ import glob
 import numpy as np
 import os
 import datetime
+from run_rtphos import make_png
 #import sys
 
 #===============================================================================
@@ -1012,6 +1013,10 @@ def calib(dirs, ref_filename, dataref, hdr_data):
 #    if biascheck or darkcheck or flatcheck: 
     writefits(dataref, hdr_out, dirs['reduced']+fileout)
 #    else:
+
+    # write the output png file also
+    # hardcoded rebin factor 4 here, TBD later
+    make_png(dirs, ref_filename, dataref, 4)
 
     result = (dataref, hdr_out, fileout)
     return result
