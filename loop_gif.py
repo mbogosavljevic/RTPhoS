@@ -8,55 +8,67 @@ and find the last nframes there
 Check if there is a gif of the fits file
 and then create an animated gif from those last nframes
 **** Work in progress ****
+!!!! UNFINISHED !!!!
 """
+import os, time
+import glob
+import PIL
+#import Image
+import matplotlib.pyplot as plt
 
-import astropy.io.fits as pyfits
-import os
-import datetime
+#===============================================================================
+# Select last N frames of FITS files based on a filename wildcard.
+#===============================================================================
+def makefilelist(path,wildcard,nframes):
 
-def loop_gif(ref_filename,namestring,nframes):
+    # Move to the specified directory
+    os.chdir(path)
+    # Search for all files in the current directory that satisfy the wildcard provided
+    filelist = sorted(glob.glob(wildcard))
+    # print ("I see: ",filelist)
+    lastn    = filelist[-nframes:]
+    return lastn
 
-   path, filename = os.path.split(ref_filename)    
+#===============================================================================
+# Main program
+#===============================================================================
+def loop_gif(ref_filename,wildcard,nframes,tsleep):
 
-   if not os.path.exists(path+'/gifs'):
-       print "Creating directory"
-       print path+'/gifs'
+    # convert to int if string
+    nframes = int(nframes)
+    tsleep  = int(tsleep)
 
-   before = dict ([(f, None) for f in os.listdir(path)])
+    path, filename = os.path.split(ref_filename)    
+    png_dir = path + '/png'
 
-   try:
-      while 1:
-          print "*GIF LOOP RUNNING* ", path, time.strftime('%X %x %Z')
-          after = dict ([(f, None) for f in os.listdir(path)])
-          added = [f for f in after if not f in before]
+    lastn    = makefilelist(png_dir,wildcard,nframes)
+    print ('Lastn',lastn)
+    oneimage = plt.imread(lastn[0]) 
+    mylist   = []
+    mylist.append(oneimage)
+    plt.show(block=False)
 
-          # Get all the fits files into a file list.
-          fitsfiles = makefilelist(namestring)
-  
-          if added: 
-                  count = count + 1             
-                  print "Added files: ", ", ".join (added)
-                  for filein in added:                  
-                     # check if it is a fits file
-                     filename = dirs['data']+'/'+filein
-                     print filename
-                     # WARNING - hardcoded the '.fits' or '.fit' extensions
-                     if (filename.endswith('.fits') or filename.endswith('.fit')):
-                        # Can load both data and header with this trick
-                        data2, hdr = pyfits.getdata(filename, header=True)              
-                        print("I read image: "+filename)
+    try:
+        while 1:
+             for filein in lastn[-nframes-1:]:                  
+                 im = plt.imread(filein)
+                 mylist.append(im)
+                 frame = plt.imshow(im)
+                 plt.show(block=False)
+                 time.sleep(1)
 
-                before = after
-                time.sleep(tsleep)   # Wait for tsleep seconds before repeating
+             time.sleep(tsleep)   # Wait for tsleep seconds before repeating
 
-        except KeyboardInterrupt:
-           pass
+    except KeyboardInterrupt:
+        pass
 
 if __name__ == "__main__":
 
    import sys
 
-   path    = sys.argv[1]
-   nframes = sys.argv[2]
+   ref_filename    = sys.argv[1]
+   wildcard        = sys.argv[2]
+   nframes         = sys.argv[3]
+   tsleep          = sys.argv[4]
 
-   loop_gif(ref_filename,path,nframes)
+   loop_gif(ref_filename,wildcard,nframes,tsleep)
