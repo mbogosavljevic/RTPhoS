@@ -42,30 +42,28 @@ def loop_gif(ref_filename,wildcard,nframes,tsleep):
     png_dir = path + '/png'
 
     lastn    = makefilelist(png_dir,wildcard,nframes)
-    print ('Lastn',lastn)
-    oneimage = plt.imread(lastn[0]) 
-    mylist   = []
-    mylist.append(oneimage)
-    plt.show(block=False)
+    mylist   = ' '.join(lastn)
+    outfile = 'last'+str(nframes)+'loop.gif'  
+    outmade = os.path.isfile(outfile)
 
     try:
         while 1:
-             for filein in lastn[-nframes-1:]:                  
-                 im = plt.imread(filein)
-                 mylist.append(im)
-                 frame = plt.imshow(im)
-                 plt.show(block=False)
-                 time.sleep(1)
-
-             time.sleep(tsleep)   # Wait for tsleep seconds before repeating
-
+            newlastn    = makefilelist(png_dir,wildcard,nframes)
+            newlist   = ' '.join(newlastn)
+            print newlist
+            if (newlist != mylist) or (not(outmade)):
+                mycmd = 'convert -delay 50 -loop 0 '+newlist+' '+outfile
+                print mycmd
+                os.system(mycmd)
+                mylist = newlist
+                outmade = True
+            time.sleep(tsleep)   # Wait for tsleep seconds before repeating
     except KeyboardInterrupt:
         pass
 
 if __name__ == "__main__":
 
    import sys
-
    ref_filename    = sys.argv[1]
    wildcard        = sys.argv[2]
    nframes         = sys.argv[3]
