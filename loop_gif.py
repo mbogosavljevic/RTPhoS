@@ -3,18 +3,13 @@
 """
 M. Bogosavljevic, AOB, June 2015
 this should listen to a directory (obtained from ref_filename)
-for files containing namestring wildcard
+subdirecrtory /png 
+for images containing namestring wildcard
 and find the last nframes there
-Check if there is a gif of the fits file
 and then create an animated gif from those last nframes
-**** Work in progress ****
-!!!! UNFINISHED !!!!
 """
 import os, time
 import glob
-import PIL
-#import Image
-import matplotlib.pyplot as plt
 
 #===============================================================================
 # Select last N frames of FITS files based on a filename wildcard.
