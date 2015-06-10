@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # M. Bogosavljevic, AOB, June 2015
 #
-# wcs_solve(dirs, filename, firsttime)
+# wcs_solve(path, filename)
 # path - paths that contains files wcs.fits and axy.fits
-# filename - xxxx.fits, the fits file itself
+# filename - the fits file itself
 
 import os
 
