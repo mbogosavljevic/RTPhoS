@@ -33,28 +33,44 @@ def loop_gif(ref_filename,wildcard,nframes,tsleep):
     nframes = int(nframes)
     tsleep  = int(tsleep)
 
+    # sanity check
+    if nframes>30:
+        print "Be reasonable and ask for less than 30 frames!"
+        return
+
     path, filename = os.path.split(ref_filename)    
     png_dir = path + '/png'
 
     lastn    = makefilelist(png_dir,wildcard,nframes)
     mylist   = ' '.join(lastn)
-    outfile = 'last'+str(nframes)+'loop.gif'  
-    outmade = os.path.isfile(outfile)
+    outfile = 'last'+str(nframes)+'loop.gif'
+
+    if len(lastn)>=nframes:
+        print "Creating animated gif from frames found:"
+        mycmd = 'convert -delay 50 -loop 0 '+mylist+' '+outfile
+        print mycmd
+        os.system(mycmd)
+        print "Done."
+    else: 
+        print "Not enough frames yet: "+str(len(lastn))+"<"+str(nframes)
+    
+    print "Checking for new files every "+str(tsleep)+" seconds"
 
     try:
         while 1:
-            newlastn    = makefilelist(png_dir,wildcard,nframes)
+            newlastn  = makefilelist(png_dir,wildcard,nframes)
             newlist   = ' '.join(newlastn)
-            print newlist
-            if (newlist != mylist) or (not(outmade)):
+            if (newlist != mylist) and len(newlastn)>=int(nframes):
                 mycmd = 'convert -delay 50 -loop 0 '+newlist+' '+outfile
                 print mycmd
                 os.system(mycmd)
                 mylist = newlist
-                outmade = True
+                print "Waiting for new frames ... "
             time.sleep(tsleep)   # Wait for tsleep seconds before repeating
     except KeyboardInterrupt:
         pass
+
+
 
 if __name__ == "__main__":
 
@@ -63,5 +79,5 @@ if __name__ == "__main__":
    wildcard        = sys.argv[2]
    nframes         = sys.argv[3]
    tsleep          = sys.argv[4]
-
+   
    loop_gif(ref_filename,wildcard,nframes,tsleep)

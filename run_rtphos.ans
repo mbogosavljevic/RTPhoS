@@ -1,6 +1,6 @@
 param rtphosdef
  pathdefs    entry {File containing new settings}    "/home/milan/Pipeline/rtphos.defaults" 
- pathlog    entry {Logfile}	                     "/home/milan/Pipeline/rtphos.log"
+ pathlog     entry {Logfile}	                     "/home/milan/Pipeline/rtphos.log"
  pathdata    entry {Raw data frames}		     "/home/milan/Pipeline/data"            
  pathbias    entry {Bias frames for calibration}     "/home/milan/Pipeline/bias"            
  pathdark    entry {Dark frames for calibration}     "/home/milan/Pipeline/dark"            
@@ -24,6 +24,14 @@ param rtphosdef
  verbose     checkbox {Verbose output switch} 1
 endparam
 
+param gifparams
+ wildcard entry {Commong wildcard string for PNG images} "Q*png"
+ nframes  entry {Number of last N frames to loop} 5
+ tsleep   entry {Sleep time before checking for new frames [s]} 3
+endparam
+
+
+
 RTPhoS Settings
 *
 menu
@@ -34,3 +42,7 @@ RUN RTPHOS
 menu
 $param(rtphosdef); xterm -sb -sl 2000 -e "tcsh -c \"python -u /home/milan/RTPhoS/run_rtphos.py $xpa_method |& tee $pathlog\" "
 
+GIF MONITOR
+*
+menu
+$param(gifparams); xterm -hold -sb -sl 2000 -e bash -c "/home/milan/RTPhoS/loop_gif.py $filename $wildcard $nframes $tsleep"
