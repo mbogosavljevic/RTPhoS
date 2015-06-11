@@ -21,6 +21,9 @@ PROGRAM BARYCOR
 !
 ! Any Fortran compiler will compile the code as long as the two libraries above
 ! are specified or are in the LD path of your system.
+! If the compiler complaines for undefined references that probably means that
+! your system does not have the libg2c library. Install (libg2c.so.0) and then
+! either include in the LD path or link it directly using: -L/path-to-libg2c.so -lg2c
 !
 ! Additional Requirements: 
 ! A file with a list of leap seconds (here leap.dat from
