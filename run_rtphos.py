@@ -23,13 +23,14 @@ import numpy as np
 import os, time
 import ccdcalib
 from   scipy.optimize import curve_fit
+from   scipy import signal, ndimage
 from   subprocess import call, Popen, PIPE
 import matplotlib.pyplot as plt
-import f2n
+#import f2n
 import sys
 
 # NOTE: where else can we put this?
-sys.path.append("~/pythoncode/f2n/f2n") # The directory that contains f2n.py and f2n_fonts !
+#sys.path.append("~/pythoncode/f2n/f2n") # The directory that contains f2n.py and f2n_fonts !
 
 ##############################################################################
 def dict_of_floats(list_of_strings, num_items):
@@ -59,20 +60,20 @@ def gauss(x, *p):
 
 ##############################################################################
 
-def make_png(dirs, ref_filename, data, rbin):
-# requires f2n installed
+#def make_png(dirs, ref_filename, data, rbin):
+## requires f2n installed
 
-    frame_name = os.path.splitext(os.path.basename(ref_filename))[0]
-    png_image_name = dirs['png'] + frame_name + ".png"
-    png_image = f2n.f2nimage(numpyarray=data)  # give the image data to f2n class
-    png_image.setzscale("flat","flat")  # works best to my liking
-    png_image.rebin(rbin)
-    png_image.makepilimage("lin")       # linear image scaling.
-    # we can play with marking the star and comparisons in the image, like so
-    # png_image.drawcircle(112, 101, r=15) 
-    # TBD later, for now just label the frame
-    png_image.writetitle(frame_name, colour=(200, 200, 0))
-    png_image.tonet(png_image_name)     # write the png.
+#    frame_name = os.path.splitext(os.path.basename(ref_filename))[0]
+#    png_image_name = dirs['png'] + frame_name + ".png"
+#    png_image = f2n.f2nimage(numpyarray=data)  # give the image data to f2n class
+#    png_image.setzscale("flat","flat")  # works best to my liking
+#    png_image.rebin(rbin)
+#    png_image.makepilimage("lin")       # linear image scaling.
+#    # we can play with marking the star and comparisons in the image, like so
+#    # png_image.drawcircle(112, 101, r=15) 
+#    # TBD later, for now just label the frame
+#    png_image.writetitle(frame_name, colour=(200, 200, 0))
+#    png_image.tonet(png_image_name)     # write the png.
 
     
 def fwhm_from_star(image):
@@ -153,6 +154,15 @@ def get_comps_fwhm(comparisons, xpapoint):
     return mean_fwhm
 
 #############################################################################
+def stripdate(longjd):
+
+    # reduce a Julian Date type date format to 2 significant figures before the decimal.
+    twosig = int(longjd/100.0)*100.0
+    shortjd =  jd - twosig
+
+    return (shortjd, twosig)
+
+#############################################################################
 def barytime(checklist):
 
     # Deconstruct the Date string from the DATE Keyword
@@ -206,10 +216,6 @@ def barytime(checklist):
 
 #############################################################################
 def zach_offsets(dataref,data2red):
-
-    import pyfits
-    from scipy import signal, ndimage
-    import numpy
     
     xshift = 0
     yshift = 0
@@ -224,7 +230,7 @@ def zach_offsets(dataref,data2red):
     yend   = ysize1-10
     
     croped1 = dataref[xstart:xend,ystart:yend]
-    median1 = pyfits.np.median(croped1)
+    median1 = np.median(croped1)
     
     # Create image 1 mask and blur it using a Gausian filter of
     # FWHM of 1 pixel. Then any pixel with a value less than 100
@@ -256,7 +262,7 @@ def zach_offsets(dataref,data2red):
     ystart = 9
     yend   = ysize2-10
     croped2 = data2red[xstart:xend,ystart:yend]
-    median2 = pyfits.np.median(croped2)
+    median2 = np.median(croped2)
       	
     # Create image 2 mask and blur it
     mask2   = croped2
@@ -270,8 +276,8 @@ def zach_offsets(dataref,data2red):
     yvals2=mask2.sum(axis=1)
     
     # Calculate the x and y shift of the image in pixels using cross correlation
-    xshift = (numpy.argmax(signal.correlate(xvals1,xvals2)))-(ysize-1)
-    yshift = (numpy.argmax(signal.correlate(yvals1,yvals2)))-(xsize-1)
+    xshift = (np.argmax(signal.correlate(xvals1,xvals2)))-(ysize-1)
+    yshift = (np.argmax(signal.correlate(yvals1,yvals2)))-(xsize-1)
     
     return (xshift, yshift)
 
@@ -368,8 +374,8 @@ class seekfits():
 # requires zach_offsets, write_optphot_init
     
     #Suppose we know the x range
-    min_x = 0
-    max_x = 10
+    #min_x = 0
+    #max_x = 10
 
     def on_launch(self, dirs):
         #Set up plot
@@ -380,7 +386,8 @@ class seekfits():
 #        self.line, (down, up), verts = self.ax.errorbar([],[],yerr=[],ftm='o')
         #Autoscale on unknown axis and known lims on the other
         self.ax.set_autoscaley_on(True)
-        self.ax.set_xlim(self.min_x, self.max_x)
+        self.ax.set_autoscalex_on(True)
+        #self.ax.set_xlim(self.min_x, self.max_x)
         #Other stuff
         self.ax.grid()
         self.ax.set_xlabel('Time')
@@ -434,7 +441,7 @@ class seekfits():
                      # WARNING - hardcoded the '.fits' or '.fit' extensions
                      if (filename.endswith('.fits') or filename.endswith('.fit')):
                         # Can load both data and header with this trick
-                        data2, hdr = pyfits.getdata(filename, header=True)              
+                        data2, hdr = pyfits.getdata(filename, header=True) 
                         print("I read image: "+filename)
 
                         # First check that all the required header keywords are in
@@ -444,7 +451,7 @@ class seekfits():
                         # then time will be in plain simple Julian Date.
                         checklist = ccdcalib.makechecklist(hdr)
 
-                        if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":                 
+                        if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":  
                            datetime = checklist['DATE']+" "+checklist['TIME']
                            datetime = Time(datetime, format='iso', scale='utc')
                            time_frame  = datetime.jd
@@ -457,6 +464,10 @@ class seekfits():
                            time_BDJD = barytime(checklist)
                            frame_time = format(float(time_BDJD[1]), '.15g')
                            frame_timerr  = format(float(time_BDJD[2]), '.15g')
+
+                        # Strip JD and reduced it to 2 significant figures.
+                        # stripjd = int(float(frame_time)/100.0)*100.0
+                        # twosig_time =  float(frame_time) - stripjd
 
                         # Now initiate the calibration, offsets and photometry.
                         # ccdcalib will either calibrate the image and place the
@@ -496,8 +507,7 @@ class seekfits():
                             print "APER_STAR ", i+1, aperatlist[i][0], aperatlist[i][1], seeing
                         print
 
-                        x = count
-                        xdata.append(x)
+                        xdata.append(frame_time)
                         ydata.append(optimalist[1][0])
 
                         xer = 1
