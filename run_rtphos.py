@@ -298,17 +298,22 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
     for i in range(0,nt):
         x = targets[i][0][0]
         y = targets[i][0][1]
-        # write the target as the first source in stars.cat
-        text_file2.write('%-5s %8.1f %8.1f \n' % ("1", x-xoff, y-yoff) )
+        name = targets[i][1]
+        name2 = name[name.find("{")+1:name.find("}")]
+        # write the targets as first source(s) in stars.cat
+        text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (i, x-xoff, y-yoff, name2) )
 
     nc = len(comparisons)
     print("Comparisons nc:", nc)
     for k in range(0,nc):
         x = comparisons[k][0][0]
         y = comparisons[k][0][1]
-        text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x-xoff, y-yoff) )
-        text_file2.write('%-5i %8.1f %8.1f \n' % (k+2, x-xoff, y-yoff) )
-        #print('%-5i %8.1f %8.1f' % (k+1, x, y) )
+        name = comparisons[k][1]
+        name2 = name[name.find("{")+1:name.find("}")]
+        # write comparisons to psf.cat
+        text_file1.write('%-5i %8.1f %8.1f %-15s \n' % (k+1, x-xoff, y-yoff, name2) )
+        # add comparisons as additional sources to stars.cat
+        text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (k+nt+1, x-xoff, y-yoff, name2) )
 
     text_file1.close()
     text_file2.close()
@@ -420,7 +425,10 @@ class seekfits():
         xerror = []
         yerror = []
 
-        before = dict ([(f, None) for f in os.listdir(dirs['data'])])
+        before = sorted(os.listdir(dirs['data']))
+        # a switch to first check if files found on startup
+        # need to be reduced or not (if the reduced output exists)
+        reducebefore = True
 
         # counter needed just to print out progress
         count = 0
@@ -428,8 +436,12 @@ class seekfits():
         try:
            while 1:
                 print "*LISTENING*", dirs['data'], time.strftime('%X %x %Z')
-                after = dict ([(f, None) for f in os.listdir(dirs['data'])])
+                after = sorted(os.listdir(dirs['data']))
                 added = [f for f in after if not f in before]
+
+                if reducebefore:
+                    added = added + before
+                    reducebefore = False
 
                 if added: 
                   count = count + 1             
@@ -440,6 +452,7 @@ class seekfits():
                      print filename
                      # WARNING - hardcoded the '.fits' or '.fit' extensions
                      if (filename.endswith('.fits') or filename.endswith('.fit')):
+
                         # Can load both data and header with this trick
                         data2, hdr = pyfits.getdata(filename, header=True) 
                         print("I read image: "+filename)
@@ -561,7 +574,8 @@ def run_rtphos(xpapoint):
 
     # This is where the pipiline looks at the data for the first time!
     dataref, hdr = pyfits.getdata(ref_filename, header=True)     
-    print("... Working ...")
+    print " ==== RTPhoS START ==== " + time.strftime('%X %x %Z')
+    print " DS9: Starting with file " + ref_filename
 
     # Check image calibration and calibrate if required.   
     result = ccdcalib.calib(dirs, ref_filename, dataref, hdr)
