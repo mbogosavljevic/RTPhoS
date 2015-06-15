@@ -294,7 +294,6 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
     yoff = float(thisoffset[1])
 
     nt = len(targets)
-    print("Targets nt:", nt)
     for i in range(0,nt):
         x = targets[i][0][0]
         y = targets[i][0][1]
@@ -304,7 +303,6 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
         text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (i, x-xoff, y-yoff, name2) )
 
     nc = len(comparisons)
-    print("Comparisons nc:", nc)
     for k in range(0,nc):
         x = comparisons[k][0][0]
         y = comparisons[k][0][1]
@@ -317,8 +315,8 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
 
     text_file1.close()
     text_file2.close()
-    print ("Wrote:", imdir+"psf.cat")
-    print ("Wrote:", imdir+"stars.cat")
+    print ("Wrote " + str(nc) + " in " + imdir + "psf.cat")
+    print ("Wrote " + str(nc+nt) + " in "  + imdir + "stars.cat")
     return (1)
 
 
@@ -445,7 +443,6 @@ class seekfits():
 
                 if added: 
                   count = count + 1             
-                  print "Added files: ", ", ".join (added)
                   for filein in added:                  
                      # check if it is a fits file
                      filename = dirs['data']+'/'+filein
@@ -496,7 +493,6 @@ class seekfits():
                         print "Offsets: (x,y) ", thisoffset
 
                         # create optphot init files
-                        print("Targets here", targets)
                         t = write_optphot_init(dirs['reduced'], comparisons, targets, thisoffset)
                         print "Wrote Opphot init files"
                         # call optimal and do the photometry.
