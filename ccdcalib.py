@@ -881,20 +881,34 @@ def calib(dirs, ref_filename, dataref, hdr_data):
 # - numpy
 # - datetime
 # ------------------------------------------------------------------------------
-
-    print "Checking image calibration..."
+ 
+    # Write the output to disk giving the prefix of 'c_' to the calibrated frame. 
+    # WARNING, HARDCODING: THIS NEEDS TO BE UPDATED TO READ IN THE DEFAULTS FILE
 
     # Strip the filename of its path
     ref_filename = os.path.basename(ref_filename)
+    
+    # Check if the reduced output already exists
+    # if it does, read it and return that as result
+    fileout = 'c_'+ref_filename
+
+    if os.path.isfile(dirs['reduced']+fileout):
+        print "File already processed: " + dirs['reduced']+fileout
+        dataref, hdr_out = pyfits.getdata(dirs['reduced']+fileout, header=True) 
+        result = (dataref, hdr_out, fileout)
+        return result
+
+    # if the reduced output does not exist, proceed
+    print "Checking image calibration..."
 
     # Check to see that this is a 2-D image if not stop.
     if hdr_data['NAXIS'] != 2:
-       print "WARNING: Not a 2D image file! Proceeding to next frame..."
-       return    
+        print "WARNING: Not a 2D image file! Proceeding to next frame..."
+        return    
 
     # Get the size of the image.
     dsize = np.shape(dataref)
-
+    
     # Create the list of headers to check for file compatibility.
     datacheck = makechecklist(hdr_data)
 
@@ -1008,8 +1022,6 @@ def calib(dirs, ref_filename, dataref, hdr_data):
     if darkcheck: hdr_out['DARKCOR'] = (darktxt)
     if flatcheck: hdr_out['FLATCOR'] = (flattxt)
 
-    # Write the output to disk giving the prefix of 'c_' to the calibrated frame. 
-    fileout = 'c_'+ref_filename
 #    if biascheck or darkcheck or flatcheck: 
     writefits(dataref, hdr_out, dirs['reduced']+fileout)
 #    else:

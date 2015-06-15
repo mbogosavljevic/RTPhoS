@@ -26,7 +26,7 @@ from   scipy.optimize import curve_fit
 from   scipy import signal, ndimage
 from   subprocess import call, Popen, PIPE
 import matplotlib.pyplot as plt
-#import f2n
+import f2n
 import sys
 
 # NOTE: where else can we put this?
@@ -60,20 +60,20 @@ def gauss(x, *p):
 
 ##############################################################################
 
-#def make_png(dirs, ref_filename, data, rbin):
-## requires f2n installed
+def make_png(dirs, ref_filename, data, rbin):
+# requires f2n installed
 
-#    frame_name = os.path.splitext(os.path.basename(ref_filename))[0]
-#    png_image_name = dirs['png'] + frame_name + ".png"
-#    png_image = f2n.f2nimage(numpyarray=data)  # give the image data to f2n class
-#    png_image.setzscale("flat","flat")  # works best to my liking
-#    png_image.rebin(rbin)
-#    png_image.makepilimage("lin")       # linear image scaling.
-#    # we can play with marking the star and comparisons in the image, like so
-#    # png_image.drawcircle(112, 101, r=15) 
-#    # TBD later, for now just label the frame
-#    png_image.writetitle(frame_name, colour=(200, 200, 0))
-#    png_image.tonet(png_image_name)     # write the png.
+    frame_name = os.path.splitext(os.path.basename(ref_filename))[0]
+    png_image_name = dirs['png'] + frame_name + ".png"
+    png_image = f2n.f2nimage(numpyarray=data)  # give the image data to f2n class
+    png_image.setzscale("flat","flat")  # works best to my liking
+    png_image.rebin(rbin)
+    png_image.makepilimage("lin")       # linear image scaling.
+    # we can play with marking the star and comparisons in the image, like so
+    # png_image.drawcircle(112, 101, r=15) 
+    # TBD later, for now just label the frame
+    png_image.writetitle(frame_name, colour=(200, 200, 0))
+    png_image.tonet(png_image_name)     # write the png.
 
     
 def fwhm_from_star(image):
