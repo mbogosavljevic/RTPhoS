@@ -1,7 +1,9 @@
 param rtphosdef
- pathdefs    entry {File containing new settings}    "/home/milan/Pipeline/rtphos.defaults" 
- pathlog     entry {Logfile}	                     "/home/milan/Pipeline/rtphos.log"
- pathdata    entry {Raw data frames}		     "/home/milan/Pipeline/data"            
+ pathrtphos  entry {RTPhoS location}        "/home/milan/RTPhoS"
+ pathdefs    entry {RTPhoS settings}        "/home/milan/Pipeline/rtphos.defaults"
+ pathlog     entry {RTPhoS logfile}         "/home/milan/Pipeline/rtphos.log"
+ pathans     entry {DS9 Analysis settings}  "/home/milan/Pipeline/rtphos.ans"
+ pathdata    entry {Raw data frames}	    "/home/milan/Pipeline/data"
  pathbias    entry {Bias frames for calibration}     "/home/milan/Pipeline/bias"            
  pathdark    entry {Dark frames for calibration}     "/home/milan/Pipeline/dark"            
  pathflat    entry {Flat frames for calibration}     "/home/milan/Pipeline/flat"            
@@ -11,8 +13,6 @@ param rtphosdef
  namebias    entry {Masterbias filename}	     "masterbias.fits"                             
  namedark    entry {Masterdark filename}	     "massterdark.fits"                            
  nameflat    entry {Masterflat filename}	     "masterflat.fits"                             
- filejpl     entry {path to JPL Ephemeris file}	     "/home/milan/RTPhoS/Timing/jpleph.dat"        
- fileleap    entry {path to leap seconds data file}  "/home/milan/RTPhoS/Timing/leap.dat"          
  cprefix     entry {Prefix for calibrated files}     "c_"                                          
  sradius     entry {Search radius for optimal centroiding} 5.0
  aradius     entry {Aperature radius for photometry} 10.0 
@@ -30,19 +30,17 @@ param gifparams
  tsleep   entry {Sleep time before checking for new frames [s]} 3
 endparam
 
-
-
 RTPhoS Settings
 *
 menu
-$param(rtphosdef); write_rtphos_defaults.py $pathdefs $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $filejpl $fileleap $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose | $text
+$param(rtphosdef);  $param(gifparams); xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/write_rtphos_defaults.py $pathrtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep" 
 
 RUN RTPHOS
 *
 menu
-$param(rtphosdef); xterm -sb -sl 2000 -e "tcsh -c \"python -u /home/milan/RTPhoS/run_rtphos.py $xpa_method |& tee $pathlog\" "
+$param(rtphosdef); xterm -hold -sb -sl 2000 -e "tcsh -c \"python -u $pathrtphos/run_rtphos.py $xpa_method |& tee $pathlog\" "
 
 GIF MONITOR
 *
 menu
-$param(gifparams); xterm -hold -sb -sl 2000 -e bash -c "/home/milan/RTPhoS/loop_gif.py $filename $wildcard $nframes $tsleep"
+$param(gifparams); $param(rtphosdef); xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/loop_gif.py $filename $wildcard $nframes $tsleep"
