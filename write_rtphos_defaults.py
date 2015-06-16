@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # M. Bogosavljevic, AOB, June 2015
 
-def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, wildcard, nframes, tsleep):
+def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, wildcard, nframes, tsleep, source, comp1, comp2, comp3, nlast):
 
     defs_file = open(pathdefs, "w")
 
@@ -55,29 +55,46 @@ def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbia
     defs_file.write(" skyfit      entry {Sky fitting switch for optimal photometry} "   +  skyfit    + "\n" )
     defs_file.write(" gain        entry {Instrument Gain e-/ADU}         " +  gain       + "\n" )    
     defs_file.write(" verbose     checkbox {Verbose output switch}       " +  verbose    + "\n" )    
-    defs_file.write("endparam\n")
-
-    defs_file.write("\n")
-    defs_file.write("param gifparams\n")
-    defs_file.write(" wildcard entry {Commong wildcard string for PNG images} " + wildcard + "\n" )
-    defs_file.write(" nframes  entry {Number of last N frames to loop} " + nframes + "\n" )
     defs_file.write(" tsleep   entry {Sleep time before checking for new frames [s]} " + tsleep + "\n" )
     defs_file.write("endparam\n")
     defs_file.write("\n")
+
+    defs_file.write("param gifparams\n")
+    defs_file.write(" wildcard entry {Commong wildcard string for PNG images} " + wildcard + "\n" )
+    defs_file.write(" nframes  entry {Number of last N frames to loop} " + nframes + "\n" )
+    defs_file.write("endparam\n")
+    defs_file.write("\n")
+
+    defs_file.write("param sourceparams\n")
+    defs_file.write("source entry {Choose source name} " + source + " \n")
+    defs_file.write("comp1  entry {Choose comp1 name [required]} " + comp1 + " \n")
+    defs_file.write("comp2  entry {Choose comp2 name [optional/\"none\"]} " + comp2 + " \n")
+    defs_file.write("comp3  entry {Choose comp3 name [optional/\"none\"]} " + comp3 + " \n")
+    defs_file.write("nlast  entry {include N last measurements} " + nlast + " \n")
+    defs_file.write("endparam \n")
+    defs_file.write("\n")
+
     defs_file.write("RTPhoS Settings\n")
     defs_file.write("*\n")
     defs_file.write("menu\n")
-    defs_file.write("$param(rtphosdef);  $param(gifparams); xterm -hold -sb -sl 2000 -e bash -c \"$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep \" \n")
+    defs_file.write("$param(rtphosdef);  $param(gifparams); xterm -hold -sb -sl 2000 -e bash -c \"$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep $source $comp1 $comp2 $comp3 $nlast \" \n")
     defs_file.write("\n")
+
     defs_file.write("RUN RTPHOS\n")
     defs_file.write("*\n")
     defs_file.write("menu\n")
     defs_file.write("$param(rtphosdef); xterm -hold -sb -sl 2000 -e \"tcsh -c \\\"python -u $rtphos/run_rtphos.py $xpa_method |& tee $pathlog\\\" \" \n")
     defs_file.write("\n")
-    defs_file.write("GIF MONITOR\n")
+
+    defs_file.write("Fits to Animated GIF\n")
     defs_file.write("*\n")
     defs_file.write("menu\n")
     defs_file.write("$param(gifparams); $param(rtphosdef); xterm -hold -sb -sl 2000 -e bash -c \" $rtphos/loop_gif.py $filename $wildcard $nframes $tsleep\"\n")
+
+    defs_file.write("Photometry Monitor\n")
+    defs_file.write("*\n")
+    defs_file.write("menu\n")
+    defs_file.write("$param(sourceparams); $param(rtphosdef); xterm -hold -sb -sl 2000 -e bash -c \"$pathrtphos/phot_monitor.py $pathlog $source $comp1 $comp2 $comp3 $nlast $tsleep\" \n")
 
     defs_file.close()
 
@@ -113,5 +130,10 @@ if  __name__ == "__main__":
     wildcard       = sys.argv[24]
     nframes        = sys.argv[25]
     tsleep         = sys.argv[26]
+    source         = sys.argv[27]
+    comp1          = sys.argv[28]
+    comp2          = sys.argv[29]
+    comp3          = sys.argv[30]
+    nlast          = sys.argv[31]
 
-    write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, wildcard, nframes, tsleep)
+    write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, wildcard, nframes, tsleep, source, comp1, comp2, comp3, nlast)
