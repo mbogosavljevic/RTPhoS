@@ -300,7 +300,8 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
         name = targets[i][1]
         name2 = name[name.find("{")+1:name.find("}")]
         # write the targets as first source(s) in stars.cat
-        text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (i, x-xoff, y-yoff, name2) )
+        # text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (i, x-xoff, y-yoff, name2) )
+        text_file2.write('%-5i %8.1f %8.1f \n' % (i, x-xoff, y-yoff))
 
     nc = len(comparisons)
     for k in range(0,nc):
@@ -309,9 +310,11 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
         name = comparisons[k][1]
         name2 = name[name.find("{")+1:name.find("}")]
         # write comparisons to psf.cat
-        text_file1.write('%-5i %8.1f %8.1f %-15s \n' % (k+1, x-xoff, y-yoff, name2) )
+        # text_file1.write('%-5i %8.1f %8.1f %-15s \n' % (k+1, x-xoff, y-yoff, name2) )
+        text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x-xoff, y-yoff))
         # add comparisons as additional sources to stars.cat
-        text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (k+nt+1, x-xoff, y-yoff, name2) )
+        # text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (k+nt+1, x-xoff, y-yoff, name2) )
+        text_file2.write('%-5i %8.1f %8.1f \n' % (k+nt+1, x-xoff, y-yoff))
 
     text_file1.close()
     text_file2.close()
