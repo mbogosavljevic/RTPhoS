@@ -30,17 +30,30 @@ param gifparams
  tsleep   entry {Sleep time before checking for new frames [s]} 3
 endparam
 
+param sourceparams
+ source entry {Choose source name} "target"
+ comp1  entry {Choose comp1 name}  "C-1"
+ comp2  entry {Choose comp2 name}  "none"
+ comp3  entry {Choose comp3 name}  "none"
+ nlast  entry {include N last measurements} 0
+endparam
+
 RTPhoS Settings
 *
 menu
 $param(rtphosdef);  $param(gifparams); xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/write_rtphos_defaults.py $pathrtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep" 
 
-RUN RTPHOS
+Run RTPhoS
 *
 menu
 $param(rtphosdef); xterm -hold -sb -sl 2000 -e "tcsh -c \"python -u $pathrtphos/run_rtphos.py $xpa_method |& tee $pathlog\" "
 
-GIF MONITOR
+Fits to Animated GIF
 *
 menu
 $param(gifparams); $param(rtphosdef); xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/loop_gif.py $filename $wildcard $nframes $tsleep"
+
+Photometry Monitor
+*
+menu
+$param(rtphosdef); $param(sourceparams); xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/phot_monitor.py $pathlog $source $comp1 $comp2 $comp3 $nlast"

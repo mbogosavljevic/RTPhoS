@@ -18,6 +18,7 @@
 import pyregion
 import astropy.io.fits as pyfits
 from   astropy.time import Time
+from   datetime import datetime
 import pyds9
 import numpy as np
 import os, time
@@ -299,9 +300,10 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
         y = targets[i][0][1]
         name = targets[i][1]
         name2 = name[name.find("{")+1:name.find("}")]
+
         # write the targets as first source(s) in stars.cat
-        # text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (i, x-xoff, y-yoff, name2) )
-        text_file2.write('%-5i %8.1f %8.1f \n' % (i, x-xoff, y-yoff))
+        # text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (i+1, x-xoff, y-yoff, name2) )
+        text_file2.write('%-5i %8.1f %8.1f \n' % (i+1, x-xoff, y-yoff))
 
     nc = len(comparisons)
     for k in range(0,nc):
@@ -309,9 +311,11 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
         y = comparisons[k][0][1]
         name = comparisons[k][1]
         name2 = name[name.find("{")+1:name.find("}")]
+
         # write comparisons to psf.cat
         # text_file1.write('%-5i %8.1f %8.1f %-15s \n' % (k+1, x-xoff, y-yoff, name2) )
         text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x-xoff, y-yoff))
+
         # add comparisons as additional sources to stars.cat
         # text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (k+nt+1, x-xoff, y-yoff, name2) )
         text_file2.write('%-5i %8.1f %8.1f \n' % (k+nt+1, x-xoff, y-yoff))
@@ -393,6 +397,7 @@ class seekfits():
         #Autoscale on unknown axis and known lims on the other
         self.ax.set_autoscaley_on(True)
         self.ax.set_autoscalex_on(True)
+        plt.gcf().autofmt_xdate()
         #self.ax.set_xlim(self.min_x, self.max_x)
         #Other stuff
         self.ax.grid()
@@ -410,7 +415,7 @@ class seekfits():
 #        down.set_ydata()
 #    bottoms.set_ydata(y - yerr)
 #    tops.set_ydata(y + yerr)
-
+        
         #Need both of these in order to rescale
         self.ax.relim()
         self.ax.autoscale_view()
@@ -465,14 +470,18 @@ class seekfits():
                         checklist = ccdcalib.makechecklist(hdr)
 
                         if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":  
-                           datetime = checklist['DATE']+" "+checklist['TIME']
-                           datetime = Time(datetime, format='iso', scale='utc')
-                           time_frame  = datetime.jd
-                           exp = float(checklist['EXPOSURE'])
-                           midexp = exp/2.0
+                           mdatetime = checklist['DATE']+" "+checklist['TIME']
+                           
+                           # this is needed to get plot-able UTC time
+                           sdatetime = datetime.strptime(mdatetime,  "%Y-%m-%d %H:%M:%S")
+                           
+                           mdatetime = Time(mdatetime, format='iso', scale='utc')
+                           time_frame  = mdatetime.jd # in days
+                           exp = float(checklist['EXPOSURE']) # in seconds
+                           midexp = (exp / 2.0) / 86400. # in days
                            # Make frame time the middle of the exposure
-                           frame_time = format(time_frame+midexp, '.15g')
-                           frame_timerr = format(midexp/86400.0, '.15g')   
+                           frame_time = format(time_frame + midexp, '.15g')
+                           frame_timerr = format(midexp, '.15g')   
                         else:
                            time_BDJD = barytime(checklist)
                            frame_time = format(float(time_BDJD[1]), '.15g')
@@ -519,15 +528,20 @@ class seekfits():
                             print "APER_STAR ", i+1, aperatlist[i][0], aperatlist[i][1], seeing
                         print
 
-                        xdata.append(frame_time)
+                        # xdata.append(frame_time)
+                        xdata.append(sdatetime) # this is a datetime.datetime object
+                        # NEED TO CHANGE THE XAXIS TYPE TO TIME, SOMEHOW
+                        # http://stackoverflow.com/questions/19079143/how-to-plot-time-series-in-python
+                        # http://stackoverflow.com/questions/5498510/creating-graph-with-date-and-time-in-axis-labels-with-matplotlib
+                        # http://stackoverflow.com/questions/17987468/custom-date-range-x-axis-in-time-series-with-matplotlib
                         ydata.append(optimalist[1][0])
-
+                        
                         xer = 1
                         xerror.append(xer)
                         yerror.append(optimalist[1][1])
-
+                        
                         self.on_running(xdata, ydata, yerror)
-
+                        
                 before = after
                 time.sleep(tsleep)   # Wait for tsleep seconds before repeating
 
