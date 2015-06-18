@@ -551,7 +551,7 @@ class seekfits():
         return # xdata, ydata
 
 #############################################################################
-def run_rtphos(xpapoint):
+def run_rtphos(xpapoint,pathdefs):
 # requires get_comps_fwhm, seekfits
 
     # create a ds9 object linked with an XPA point
@@ -660,4 +660,5 @@ if  __name__ == "__main__":
     import sys
     plt.ion()
     xpapoint       = sys.argv[1]
-    run_rtphos(xpapoint)
+    pathdefs       = sys.argv[2]
+    run_rtphos(xpapoint,pathdefs)
