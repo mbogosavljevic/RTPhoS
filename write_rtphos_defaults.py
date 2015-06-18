@@ -25,6 +25,7 @@ def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbia
     defs_file.write(skyfit     + "     # Sky fitting switch for optimal photometry\n")	
     defs_file.write(gain       + "     # Instrument Gain e-/ADU\n")	
     defs_file.write(verbose    + "     # Verbose output switch\n")	
+    defs_file.write(tsleep     + "     # Sleep time before checking for new frames [s]\n")	
 
     defs_file.close()
     print "Wrote :"+pathdefs
@@ -83,7 +84,7 @@ def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbia
     defs_file.write("RUN RTPHOS\n")
     defs_file.write("*\n")
     defs_file.write("menu\n")
-    defs_file.write("$param(rtphosdef); xterm -hold -sb -sl 2000 -e \"tcsh -c \\\"python -u $rtphos/run_rtphos.py $xpa_method |& tee $pathlog\\\" \" \n")
+    defs_file.write("$param(rtphosdef); xterm -hold -sb -sl 2000 -e \"tcsh -c \\\"python -u $rtphos/run_rtphos.py $xpa_method $pathdefs |& tee $pathlog\\\" \" \n")
     defs_file.write("\n")
 
     defs_file.write("Fits to Animated GIF\n")
