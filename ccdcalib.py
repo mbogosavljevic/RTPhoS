@@ -856,10 +856,11 @@ def makeflat(dsize, obsfilter, dirs):
 #===============================================================================
 # ----------------------CALIBRATION INITIALIZATION------------------------------
 #===============================================================================
-def calib(dirs, ref_filename, dataref, hdr_data):
+def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
 
 # ------------------------------------------------------------------------------
 # Inputs:
+# rtdefs       - Type: Dictionary - Holds the default settings
 # dirs         - Type: Dictionary - Holds all the relevant directory paths
 # ref_filename - Type: String - The image data filename
 # dataref      - Type: Array  - The image 2-D data array
