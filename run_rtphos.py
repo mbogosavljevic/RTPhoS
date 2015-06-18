@@ -424,7 +424,7 @@ class seekfits():
         self.figure.canvas.flush_events()
 
 
-    def __call__(self, dataref, dirs, tsleep, comparisons, targets, psf_fwhm ):
+    def __call__(self, rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm ):
         self.on_launch(dirs)
         xdata = []
         ydata = []
@@ -497,7 +497,7 @@ class seekfits():
                         # if the image did not require calibration just copy the image
                         # to the '/reduced/' directory. In either case the image will
                         # have a 'c_' prefix to indicate that ccdcalib has seen it.
-                        calib_data = ccdcalib.calib(dirs, filename, data2, hdr)
+                        calib_data = ccdcalib.calib(rtdefs, dirs, filename, data2, hdr)
                         (data2, hdr, calib_fname) = calib_data
 
                         # find offsets from dataref
@@ -551,62 +551,95 @@ class seekfits():
         return # xdata, ydata
 
 #############################################################################
-def run_rtphos(xpapoint,pathdefs):
+def run_rtphos(rtphosdir, xpapoint, pathdefs):
 # requires get_comps_fwhm, seekfits
+  
+    print " ==== RTPhoS START ==== " + time.strftime('%X %x %Z')
 
+    ######## SETTING UP DIRECTORIES AND LINKS
     # create a ds9 object linked with an XPA point
     win = pyds9.DS9(xpapoint)
-    # load the image which is displayed in ds9 (from disk!)
+    # image name which is displayed in ds9 
     ref_filename = win.get("file")
 
     # Set up input and output directories
-    path, filename = os.path.split(ref_filename)    
-    data_dir = path # Set data directory as the directory of the DS9 image.
-    current_dir = os.path.abspath(os.path.join(data_dir, os.pardir))
-    bias_dir = current_dir+"/bias/"    # Ultimately these dirs need to be set by
-    dark_dir = current_dir+"/dark/"    # the user using a DS9 input window.
-    flat_dir = current_dir+"/flat/"    #  -""-
-    reduced_dir  = data_dir+"/reduced/" #  -""-
+    path, filename = os.path.split(ref_filename) 
+
+    # read in defaults
+    with open (pathdefs, "r") as defsfile:
+        defs = defsfile.readlines()
+        print " Read defaults from: "+ pathdefs
+        print defsfile.read()
+        print " ========================================== "
+
+    ## If you would want to grep the defaults file and find match
+    ## this would be one way to do it
+    #Set data directory from defaults file
+    #findthis = "# Raw data frames"
+    #matching = [s for s in defs if findthis in s]
+    #data_dir = matching[0].split()[0]
+
+    # Will use positional assignement for defaults
+    data_dir     = defs[1].split()[0]
+    bias_dir     = defs[2].split()[0]
+    dark_dir     = defs[3].split()[0]
+    flat_dir     = defs[4].split()[0]
+    reduced_dir  = data_dir+"/reduced/"
     png_dir      = data_dir+"/png/"
+    # Current root working dir
+    current_dir = os.path.abspath(os.path.join(data_dir, os.pardir))
 
-    if not os.path.exists(reduced_dir): os.makedirs(reduced_dir)
-    if not os.path.exists(png_dir): os.makedirs(png_dir)
-
+    if not os.path.exists(reduced_dir): 
+        os.makedirs(reduced_dir)
+        print "Created output reduced dir: " + reduced_dir
+    if not os.path.exists(png_dir): 
+        os.makedirs(png_dir)
+        print "Created output png dir: " + png_dir
+    
     # Create the symbolic links required for running barycor.f90
-    # WARNING: The links are hardwired into the code. This should be made
-    # such that the code checks to see if the links are true. If they are
-    # proceed as normal otherwise return just Julian Days and not BDJD.
     os.chdir(reduced_dir)
-    call(['ln', '-s', '/opt/star-kapuahi/etc/jpleph.dat', 'JPLEPH'])
-    call(['ln', '-s', '/home/zac/Software/Ark/data/leap.dat', 'leapdat'])
+    call(['ln', '-s', rtphosdir+'/Timing/jpleph.dat', 'JPLEPH'])
+    call(['ln', '-s', rtphosdir+'/Timing/leap.dat', 'leapdat'])
     os.chdir(data_dir) # Move back to the data directory
 
     # Make a dictionary with all the required directories
     dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, \
             'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir, 'png':png_dir}
 
-    # This is where the pipiline looks at the data for the first time!
-    dataref, hdr = pyfits.getdata(ref_filename, header=True)     
-    print " ==== RTPhoS START ==== " + time.strftime('%X %x %Z')
-    print " DS9: Starting with file " + ref_filename
+    # these are all string types
+    biaswc  = defs[5].split()[0]
+    darkwc  = defs[6].split()[0]
+    flatwc  = defs[7].split()[0]
+    mbias   = defs[8].split()[0]
+    mdark   = defs[9].split()[0]
+    mflat   = defs[10].split()[0]
+    cprefix = defs[11].split()[0]
+    # numbers 
+    sradius     = float(defs[12].split()[0])
+    aradius     = float(defs[13].split()[0])
+    cradius     = float(defs[14].split()[0])
+    starnumber  =   int(defs[15].split()[0])
+    skyskew     =   int(defs[16].split()[0])
+    skyfit      =   int(defs[17].split()[0])
+    gain        = float(defs[18].split()[0])
+    verbose     =   int(defs[19].split()[0])
+    tsleep      =   int(defs[20].split()[0])
 
-    # Check image calibration and calibrate if required.   
-    result = ccdcalib.calib(dirs, ref_filename, dataref, hdr)
-    (dataref, hdr, calib_fname) = result
-    
-    # select and centroid all created regions
-    # make lists of xc,yc of comparison stars (name must start with 'C-'
-    # get xt,yt of target 
-    
+    rtdefs = {'biaswc':biaswc, 'darkwc':darkwc, 'flatwc':flatwc, 'mbias':mbias,\
+               'mdark':mdark,   'mflat':mflat, 'cprefix':cprefix, \
+              'sradius':sradius, 'aradius':aradius, 'cradius':cradius, 'starnumber':starnumber, \
+              'skyskew':skyskew, 'skyfit':skyfit, 'gain':gain, 'verbose':verbose, 'tsleep':tsleep}
+
+    ######## DS9 SOURCE IDENTIFICATION AND FWHM ESTIMATE ###########
+    # Ceontrid regions in DS9
     win.set("regions select all")
 
     # I do it twice with different radii on purpose
     win.set("regions centroid radius 20")
     win.set("regions centroid iteration 20")
-    # not happy at all with DS9 centering so repeating it 50 times
-    for x in range(0, 49):
+    # not happy at all with DS9 centering so repeating it 20 times
+    for x in range(0, 19):
         win.set("regions centroid")
-
     win.set("regions centroid radius 5")
     win.set("regions centroid iteration 5")
     win.set("regions centroid")
@@ -614,29 +647,34 @@ def run_rtphos(xpapoint,pathdefs):
     win.set("regions centroid radius 20")
     win.set("regions centroid iteration 20")
 
+    # save regions file for later
     win.set("regions format ds9")
     win.set("regions save "+ ref_filename + ".reg")
 
-    #win.set("saveimage jpeg " + ref_filename + ".jpg 75 ")
-    # Instead of using win.set, which saves the current screen in DS9 
-    # and has a number of limitations and flaws, I will use f2n
-    # which I wrapped with some settings in make_png, 
-    # incorporated for all frames in ccdcalib.py
-   
+    # Get source (target, comparison) lists from regions selected
     sourcelist = win.get("regions selected") 
     sources    = pyregion.parse(sourcelist)
     n = len(sources)
-    print("I see "+ str(n) + " sources")
+    print(" In DS9 I see "+ str(n) + " sources labeled")
+
+    for l in range(0,n):
+       if (sources[l].comment is not None):
+            print (l, sources[l].name, sources[l].coord_list, sources[l].comment)
+       else:
+            print "You have some unlabeled sources!"
+            print sources[l].coord_list
+            print "====  Exiting. ==== "
+            return
 
     # find out which are the comparison stars (they must have "C-" in name)
     comparisons  = [(s.coord_list,s.comment) for s in sources if "C-" in s.comment]
     nc = len(comparisons)
     targets =  [(s.coord_list,s.comment) for s in sources if not("C-" in s.comment)]
     nt = len(targets)
-    #print("Comparisons:")
-    #print(comparisons)
-    #print("Targets:")
-    #print(targets)
+    print "Targets:"
+    print targets
+    print "Comparisons:"
+    print comparisons
 
     if nc == 0:
         print("Must have one comparison star labeled as 'C-<name>' ")
@@ -650,15 +688,25 @@ def run_rtphos(xpapoint,pathdefs):
     psf_fwhm = get_comps_fwhm(comparisons, xpapoint)
     print "Found PSF FWHM:",  ("%.2f" % psf_fwhm)
 
+    ##### START PIPELINE #############################################
+    # This is where the pipiline looks at the data for the first time!
+    print " DS9: Starting with file " + ref_filename
+    dataref, hdr = pyfits.getdata(ref_filename, header=True)     
+
+    # Check first DS9 image calibration and calibrate if required.   
+    result = ccdcalib.calib(rtdefs, dirs, ref_filename, dataref, hdr)
+    (dataref, hdr, calib_fname) = result
+
     # Do the photometry
     tsleep = 3                    # Arbitrary time delay
     photometry = seekfits()
-    photometry(dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
+    photometry(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
     
 if  __name__ == "__main__":
 
     import sys
     plt.ion()
+    rtphosdir, dummy = os.path.split(sys.argv[0]) 
     xpapoint       = sys.argv[1]
     pathdefs       = sys.argv[2]
-    run_rtphos(xpapoint,pathdefs)
+    run_rtphos(rtphosdir, xpapoint, pathdefs)
