@@ -11,7 +11,6 @@ Naylor, Tim et al. MNRAS, 335, 291, 2002
 Requirements:
 opt_extr.f90 - All the required routines for optimal and aperature photometry
 marq.f90     - Computes Marquardt routines needed for profile fitting
-subs.f90     - Various array and file sorting routines
 cfitsio      - NASA's FITS file manipulation library needs to be installed.
 
 The photometry code compiles by doing the following:
@@ -19,8 +18,8 @@ The photometry code compiles by doing the following:
 - source optimal.csh
 
 Alternatively (I use g95 but any Fortran compiler will do):
-g95 -c opt_extr.f90 marq.f90 subs.f90
-g95 -o optimal optimal.f90 marq.o opt_extr.o subs.o -L/<Local Path>/cfitsio -lcfitsio
+g95 -c opt_extr.f90 marq.f90
+g95 -o optimal optimal.f90 marq.o opt_extr.o -L/<Local Path>/cfitsio -lcfitsio
 
 Required improvements:
 1. Include flagging of bad pixels, bad stars, bad sky etc. This feature was removed from

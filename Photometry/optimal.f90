@@ -24,18 +24,19 @@ program optimal_phot
 ! edit optimal.csh and source it. (Edit needed to provide path for cfitsio library)
 !
 ! Alternatively (I use g95 but any Fortran compiler will do):
-! g95 -c opt_extr.f90 marq.f90 subs.f90
-! g95 -o optimal optimal.f90 marq.o opt_extr.o subs.o -L/<Local Path>/cfitsio -lcfitsio
+! g95 -c opt_extr.f90 marq.f90
+! g95 -o optimal optimal.f90 marq.o opt_extr.o -L/<Local Path>/cfitsio -lcfitsio
 !
 ! Required improvements:
 ! 1. Include flagging of bad pixels, bad stars, bad sky etc. This feature was removed from
 !    The original code by Tim in order to make the code independent of the ARK
 !    software package. 
 
-  use subs
   use opt_extr
 
   implicit none
+
+!----------------------------------------------------------------------------
 
 ! Variable declarations
 ! ------------------------------------------------------------------------------
@@ -77,6 +78,7 @@ program optimal_phot
   double precision, allocatable, dimension(:,:) :: psfstars
   
   character (len=50) :: psfpos
+  character (len=15), allocatable, dimension(:) :: psfnames
 
 ! Variables used for clipping the PSF star
   real :: clip_fwhm, cliprad, fwhm
@@ -96,9 +98,10 @@ program optimal_phot
   real, allocatable, dimension(:,:,:) :: optres, apres, newxypos
 
   double precision, allocatable, dimension(:,:) :: stars, times
-
+    
   character (len=50) :: starpos, offsetfile, timesfile
 
+  character (len=15), allocatable, dimension(:) :: starnames
   character (len=50), allocatable, dimension(:) :: datafiles, timefiles
 
 ! Varialbes used for sky estimation
@@ -136,6 +139,9 @@ program optimal_phot
 ! Read input parameters
   read*, filename, psfpos, starpos, verbosein
   read*, bad_sky_skw, bad_sky_chi, fwhm, clip_fwhm, aprad, iopt, searchrad, adu
+
+! J1753.fits psf.cat stars.cat N
+! -1 -1 2 5 10 1 5 6.2
 
 ! Initialize variables, set global constants
 
@@ -180,18 +186,22 @@ program optimal_phot
      if (verbose) print*, "* Found ", rows, "PSF star location(s): "
      npsf = rows
      allocate(psfstars(cols,rows))
+     allocate(psfnames(rows))
      rewind(iunit1)
-     call readit(iunit1, cols, rows, blines, psfstars)
+     call readit(iunit1, cols, rows, blines, psfstars, psfnames)
      close(iunit1)
      call ftfiou(iunit1, status)
      if (verbose) then
         do i=1, rows
-           print*, "* PSF Star ",i," at position (X,Y):", &
+           print*, "* PSF Star ",psfnames(i)," at position (X,Y):", &
                    real(psfstars(2,i)), real(psfstars(3,i))    
         end do
      end if 
      if (verbose) print*
   end if
+
+!  print*, "Here!"
+!  stop
 
   allocate(xpos0(npsf))
   allocate(ypos0(npsf))
@@ -225,14 +235,15 @@ program optimal_phot
   if (verbose) print*, "* Found ", rows, "star location(s): "
   nstar = rows
   allocate(stars(cols,rows))
+  allocate(starnames(rows))
   allocate(dpos(nstar))
   rewind(iunit1)
-  call readit(iunit1, cols, rows, blines, stars)
+  call readit(iunit1, cols, rows, blines, stars, starnames)
   close(iunit1)
   call ftfiou(iunit1, status)
   if (verbose) then
      do i=1, rows
-        print*, "* Star ",i,"with ID#",int(stars(1,i)),"at position (X,Y):", &
+        print*, "* Object ",starnames(i),"at position (X,Y):", &
                 real(stars(2,i)), real(stars(3,i))    
      end do
   end if 
@@ -392,7 +403,7 @@ program optimal_phot
             ypos0 = real(psfstars(3,:))
 
             do i=1, npsf              
-               if (verbose) print*, 'Estimated position of PSF star ', i, 'is ', &
+               if (verbose) print*, 'Estimated position of PSF star ',i, 'is ', &
                             xpos0(i), ypos0(i)
             end do
 
@@ -487,7 +498,7 @@ program optimal_phot
                               comp, xcomp, ycomp, optflux, opterror, &
                               xfit, yfit, xerr, yerr, peak, cflag, skynos,verbose)
 		    if (verbose) then
-		       print*, 'New position of star',stars(1,istar),':', xfit, yfit
+		       print*, 'New position of star',starnames(istar),':', xfit, yfit
 		       print*, '1st pass flux is: ', optflux, opterror
 		    end if
                     ! Put the flux and its error in the output array.	    
@@ -514,7 +525,7 @@ program optimal_phot
                ypos = yfit
                posfix=-1.0    ! Do not centroid
 
-		       if (verbose) print*, 'Perfoming 2nd pass for star',stars(1,istar),&
+		       if (verbose) print*, 'Perfoming 2nd pass for star',starnames(istar),&
                                             'with its position fixed to', xfit, yfit
                        call extr(data, pix_flg, xpos, ypos, posfix, adu, & 
                                  high, low, fwhm, cliprad, shape_par, optnrm, &
@@ -525,8 +536,8 @@ program optimal_phot
 	               optres(istar,2,fnum)=opterror
 		    end if
 
-		    if (verbose) print*, 'Opphot flux for star', &
-                                 stars(1,istar),'is:',optflux,'+/-',opterror
+		    if (verbose) print*, 'Opphot flux for object', &
+                                 starnames(istar),'is:',optflux,'+/-',opterror
 		    end if
 
 		    ! In addition to Optimal photometry do aperature photometry as well
@@ -594,7 +605,7 @@ program optimal_phot
   if (optimal) then
      do i=1, nstar
         do j=1, ntimes
-           print*, i, optres(i,1,j), optres(i,2,j), seeing(j) 
+           print*, starnames(i), optres(i,1,j), optres(i,2,j), seeing(j) 
         end do   
      end do
   end if
@@ -603,7 +614,7 @@ program optimal_phot
   if (aperature) then
      do i=1, nstar
         do j=1, ntimes
-           print*, i,apres(i,1,j), apres(i,2,j), seeing(j) 
+           print*, starnames(i), apres(i,1,j), apres(i,2,j), seeing(j) 
         end do   
      end do
   end if
@@ -654,3 +665,134 @@ subroutine printerror(status)
   end do
 
 end subroutine printerror
+
+!******************************************************************************
+! xsize - gets the number of columns and rows in an ascii file.
+!******************************************************************************
+
+subroutine xsize(unit, cols, rows, blines)
+
+!       This subroutine finds the number of columns and rows in an ASCII file.
+!       The program can handle up to 3 blank lines at the top of the file and
+!       the file line length must be 80 characters.
+
+!       Variable definitions.
+!       *********************************************************************
+
+        character(len=80) :: line
+
+        integer :: i, j, nline, unit, eof1, cols, rows, flag, blines 
+
+        double precision :: dummy
+
+!       *********************************************************************
+
+        cols = 0
+        rows = 0
+        nline = 4
+
+        if (blines/=0) then
+           do j=1, blines
+              read(unit,*)
+           end do
+           nline = 1
+        end if
+
+        blanks: do j=1, nline
+
+                   read(unit,'(a)')line
+
+                   columns: do i=1, 80
+ 
+                            if (line(i:i)==' ') then
+                               flag = 0
+                            else
+                               flag = 1
+                            end if
+
+                            if (i==1.and.flag==1) then
+                               cols = cols + 1
+                               cycle columns 
+                            end if
+                            if (flag==1.and.line(i-1:i-1)==' ') then
+                               cols = cols + 1
+                            end if
+
+                   end do columns
+
+                   if (cols==0) then
+                      blines = blines + 1
+                      cycle blanks
+                   else
+                      exit blanks
+                   end if
+
+        end do blanks
+
+        if (cols==0) then
+           print*
+           print*, '*** WARNING: Failed to find any columns, please check file!'
+           print*
+           stop
+        end if
+
+!       Now measure the number of rows in the file.
+        rewind(unit)
+        eof1 = 0
+
+        if (blines/=0) then
+           do i=1, blines
+              read(unit,*)
+           end do
+        end if
+
+        do
+          read (unit,*,iostat=eof1)dummy
+          if (eof1/=0) exit
+          rows = rows + 1
+        end do
+
+end subroutine xsize
+
+!******************************************************************************
+! readit - reads in the coordinates and names of the PSF and target stars.
+!******************************************************************************
+subroutine readit(unit, cols, rows, blines, data, starname)
+
+!       This subroutine reads in files into a data array.
+!       The program can handle arrays with up to 5 columns.
+
+!       Variable definitions.
+!       *********************************************************************
+
+        integer :: i, unit, eof1, cols, rows, blines
+
+        double precision :: data(cols,rows)   
+
+        character (len=15):: starname(rows)
+
+!       *********************************************************************
+
+        eof1 = 0
+
+!       Go past any blank lines that might exist at the top of the file.
+        if (blines/=0) then
+           do i=1, blines
+              read(unit,*)
+           end do
+        end if
+
+        do i=1, rows
+           if (eof1/=0) exit
+           if (cols==4) then
+              read(unit,*,iostat=eof1)data(1,i), data(2,i), data(3,i), starname(i)
+           else
+              print*
+              print*, '*** WARNING: Something wrong with the stars or PSF files,'
+              print*, '             Check their format and try again!! Exiting...'
+              print*
+              stop
+           end if
+        end do
+
+end subroutine readit
