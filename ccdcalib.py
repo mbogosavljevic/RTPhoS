@@ -365,12 +365,13 @@ def checksize(filelistin, dsize, calltxt):
 #===============================================================================
 # Create a Masterbias frame from available bias frames.
 #===============================================================================
-def makebias(dsize, dirs):
+def makebias(dsize, dirs, rtdefs):
 
 # ------------------------------------------------------------------------------
 # Inputs:
 # dsize       - Type: Tuple       - The size of the original image data array
 # dirs        - Type: Dictionary  - Input and output directories
+# rtdefs      - Type: Dictionary  - defaults from parameter file
 
 # Outputs:
 # bias     - Type: Tuple - Tuple containing a boolean and the bias image array 
@@ -400,7 +401,7 @@ def makebias(dsize, dirs):
     os.chdir(dirs['bias'])
 
     # Get all the available bias files into a file list.
-    biasfiles = makefilelist('*bias*')
+    biasfiles = makefilelist(rtdefs['biaswc'])
     biasnum = len(biasfiles)
 
     if biasnum==0:
@@ -452,7 +453,7 @@ def makebias(dsize, dirs):
 #===============================================================================
 # Create a Masterdark frame from available dark frames.
 #===============================================================================
-def makedark(dsize, exposure, dirs):
+def makedark(dsize, exposure, dirs, rtdefs):
     
 # ------------------------------------------------------------------------------
 # Inputs:
@@ -488,7 +489,7 @@ def makedark(dsize, exposure, dirs):
     os.chdir(dirs['dark'])
 
     # Get all the available dark files into a file list.
-    darkfiles = makefilelist('*dark*')
+    darkfiles = makefilelist(rtdefs['darkwc'])
     darknum = len(darkfiles)
     if darknum==0:
        darkcheck = False
@@ -1054,6 +1055,6 @@ if __name__ == "__main__":
    #dataref, hdr_data = pyfits.getdata(ref_filename, header=True)     
 
 
-   calib(dirs, ref_filename, dataref, hdr_data)
+   calib(rtdefs, dirs, ref_filename, dataref, hdr_data)
    print "Calibration Done!"
 

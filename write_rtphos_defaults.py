@@ -78,7 +78,7 @@ def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbia
     defs_file.write("RTPhoS Settings\n")
     defs_file.write("*\n")
     defs_file.write("menu\n")
-    defs_file.write("$param(rtphosdef);  $param(gifparams); xterm -hold -sb -sl 2000 -e bash -c \"$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep $source $comp1 $comp2 $comp3 $nlast \" \n")
+    defs_file.write("$param(rtphosdef);  $param(gifparams); $param(sourceparams); xterm -hold -sb -sl 2000 -e bash -c \"$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep $source $comp1 $comp2 $comp3 $nlast \" \n")
     defs_file.write("\n")
 
     defs_file.write("RUN RTPHOS\n")
