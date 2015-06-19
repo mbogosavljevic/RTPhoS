@@ -453,7 +453,7 @@ def makebias(dsize, dirs, rtdefs):
 #===============================================================================
 # Create a Masterdark frame from available dark frames.
 #===============================================================================
-def makedark(dsize, exposure, dirs, rtdefs):
+def makedark (dsize, exposure, dirs, rtdefs):
     
 # ------------------------------------------------------------------------------
 # Inputs:
@@ -582,19 +582,19 @@ def makedark(dsize, exposure, dirs, rtdefs):
     masterdark = mediancomb(gooddarkfiles)
     
 	# Check to see if a masterbias frame exists and if it does subract it from the dark.
-    if os.path.isfile(dirs['reduced']+'masterbias.fits'):	
-       masterbias = pyfits.getdata(dirs['reduced']+'masterbias.fits')
+    if os.path.isfile(dirs['reduced']+rtdefs['mbias']):	
+       masterbias = pyfits.getdata(dirs['reduced']+rtdefs['mbias'])
        # Check to see if the bias is of the same size as the dark.
        bias_size = np.shape(masterbias)
        if bias_size == np.shape(masterdark):
            masterdark = masterdark - masterbias
        else:
-           bias = makebias(dsize, dirs)
+           bias = makebias(dsize, dirs, rtdefs)
            biascheck = bias[0]
            masterbias = bias[1]
            if biascheck: masterdark = masterdark - masterbias
     else:
-       bias = makebias(dsize, dirs)
+       bias = makebias(dsize, dirs, rtdefs)
        biascheck = bias[0]
        masterbias = bias[1]
        if biascheck: masterdark = masterdark - masterbias
@@ -603,7 +603,7 @@ def makedark(dsize, exposure, dirs, rtdefs):
     if nomatch: masterdark = masterdark*factor 
 
     # Output filename and header text construct.
-    outfilename = 'masterdark.fits'
+    outfilename = rtdefs['mdark']
 
 	# Construct a COMMENT keyword and add it to the output dark header
 	# First, get the header of the first file to use as a header for the output file.
@@ -627,7 +627,7 @@ def makedark(dsize, exposure, dirs, rtdefs):
 #===============================================================================
 # Create a Masterflat frame from available flat frames.
 #===============================================================================
-def makeflat(dsize, obsfilter, dirs):
+def makeflat(dsize, obsfilter, dirs, rtdefs):
   
 # ------------------------------------------------------------------------------
 # Inputs:
@@ -664,7 +664,7 @@ def makeflat(dsize, obsfilter, dirs):
     os.chdir(dirs['flat'])
  
     # Get all the available flat files into a file list.
-    flatfiles = makefilelist('*flat*')
+    flatfiles = makefilelist(rtdefs['flatwc'])
     flatnum = len(flatfiles)
     if flatnum==0:
        flatcheck = False
@@ -776,26 +776,26 @@ def makeflat(dsize, obsfilter, dirs):
     masterflat = mediancomb(goodflatfiles)
 
 	# Check to see if a masterbias frame exists and if it does subract it from the flat.
-    if os.path.isfile(dirs['reduced']+'masterbias.fits'):	
-       masterbias = pyfits.getdata(dirs['reduced']+'masterbias.fits')
+    if os.path.isfile(dirs['reduced']+rtdefs['mbias']):	
+       masterbias = pyfits.getdata(dirs['reduced']+rtdefs['mbias'])
        # Check to see if the bias is of the same size as the dark.
        bias_size = np.shape(masterbias)
        if bias_size == np.shape(masterflat):
            masterflat = masterflat - masterbias
        else:
-           bias = makebias(dsize, dirs)
+           bias = makebias(dsize, dirs, rtdefs)
            biascheck = bias[0]
            masterbias = bias[1]
            if biascheck: masterflat = masterflat - masterbias
     else:
-       bias = makebias(dsize)
+       bias = makebias(dsize, dirs, rtdefs)
        biascheck = bias[0]
        masterbias = bias[1]
        if biascheck: masterflat = masterflat - masterbias
 
 	# Check to see if a masterdark frame exists and if it does subract it from the flat.
-    if os.path.isfile(dirs['reduced']+'masterdark.fits'):	
-       masterdark, darkhdr = pyfits.getdata(dirs['reduced']+'masterdark.fits', header=True)
+    if os.path.isfile(dirs['reduced']+rtdefs['mdark']):	
+       masterdark, darkhdr = pyfits.getdata(dirs['reduced']+rtdefs['mdark'], header=True)
        # Check to see if the dark is of the same size as the flat.
        dark_size = np.shape(masterdark)
        if dark_size == np.shape(masterflat):
@@ -815,12 +815,12 @@ def makeflat(dsize, obsfilter, dirs):
             masterdark = masterdark * factor
             masterflat = masterflat - masterdark
        else:
-          dark = makedark(dsize, flatexp, dirs)
+          dark = makedark(dsize, flatexp, dirs, rtdefs)
           darkcheck = dark[0]
           masterdark = dark[1]
           if darkcheck: masterflat = masterflat - masterdark
     else:
-       dark = makedark(dsize, flatexp, dirs)
+       dark = makedark(dsize, flatexp, dirs, rtdefs)
        darkcheck = dark[0]
        masterdark = dark[1]
        if darkcheck: masterflat = masterflat - masterdark
@@ -833,7 +833,7 @@ def makeflat(dsize, obsfilter, dirs):
     print "Nomalized Flat Median: ", np.median(masterflat)
 
     # Output filename and header text construct.
-    outfilename = 'masterflat.fits'
+    outfilename = rtdefs['mflat']
 
     # Construct a COMMENT keyword and add it to the output flat field header
     # First, get the header of the first file to use as a header for the output file.
@@ -892,7 +892,7 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
     
     # Check if the reduced output already exists
     # if it does, read it and return that as result
-    fileout = 'c_'+ref_filename
+    fileout = rtdefs['cprefix']+ref_filename
 
     if os.path.isfile(dirs['reduced']+fileout):
         print "File already processed: " + dirs['reduced']+fileout
@@ -956,13 +956,13 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
              biascheck = False
              print "WARNING: Masterbias frame is of different size than data frames!"
              print "         Attempting to make new masterbias frame..."
-             bias = makebias(dsize, dirs)
+             bias = makebias(dsize, dirs, rtdefs)
              biascheck = bias[0]
              masterbias = bias[1]
           else:
              biascheck = True
        else:
-          bias = makebias(dsize, dirs)
+          bias = makebias(dsize, dirs, rtdefs)
           biascheck = bias[0]
           masterbias = bias[1]
        if biascheck:
@@ -980,13 +980,13 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
              darkcheck = False
              print "WARNING: Masterdark frame is of different size than data frames!"
              print "         Attempting to make new masterdark frame..."
-             dark = makedark(dsize, exposure, dirs)
+             dark = makedark(dsize, exposure, dirs, rtdefs)
              darkcheck = dark[0]
              masterdark = dark[1]
           else:
              darkcheck = True
        else:
-          dark = makedark(dsize, exposure, dirs)
+          dark = makedark(dsize, exposure, dirs, rtdefs)
           darkcheck = dark[0]
           masterdark = dark[1]
        if darkcheck:
@@ -1004,13 +1004,13 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
              flatcheck = False
              print "WARNING: Masterflat frame is of different size than data frames!"
              print "         Attempting to make new masterflat frame..."
-             flat = makeflat(dsize, obsfilter, dirs)
+             flat = makeflat(dsize, obsfilter, dirs, rtdefs)
              flatcheck = flat[0]
              masterflat = flat[1]
           else:
              flatcheck = True
        else:
-          flat = makeflat(dsize, obsfilter, dirs)
+          flat = makeflat(dsize, obsfilter, dirs, rtdefs)
           flatcheck = flat[0]
           masterflat = flat[1]          
        if flatcheck:

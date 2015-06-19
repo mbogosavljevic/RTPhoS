@@ -569,7 +569,9 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     with open (pathdefs, "r") as defsfile:
         defs = defsfile.readlines()
         print " Read defaults from: "+ pathdefs
-        print defsfile.read()
+        print " "
+        for l in range(0,len(defs)):
+            print defs[l][:-2] # without the \n
         print " ========================================== "
 
     ## If you would want to grep the defaults file and find match
