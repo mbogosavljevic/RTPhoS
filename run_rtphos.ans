@@ -41,7 +41,7 @@ endparam
 RTPhoS Settings
 *
 menu
-$param(rtphosdef);  $param(gifparams); $param sourceparams ; xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/write_rtphos_defaults.py $pathrtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep $source $comp1 $comp2 $comp3 $nlast" 
+$param(rtphosdef);  $param(gifparams); $param (sourceparams) ; xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/write_rtphos_defaults.py $pathrtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep $source $comp1 $comp2 $comp3 $nlast" 
 
 Run RTPhoS
 *
