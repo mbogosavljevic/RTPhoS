@@ -13,7 +13,7 @@
 #RUN RTPHOS
 #*
 #menu
-#run_rtphos.py $xpa_method
+#run_rtphos.py $xpa_method rtphos.defaults
 
 import pyregion
 import astropy.io.fits as pyfits
@@ -279,10 +279,10 @@ def zach_offsets(dataref,data2red):
 
 #############################################################################
 
-def write_optphot_init(imdir, comparisons, targets, thisoffset):
+def write_optphot_init(rtdefs, imdir, comparisons, targets, thisoffset):
 
-    text_file1 = open(imdir+"psf.cat", "w")
-    text_file2 = open(imdir+"stars.cat", "w")
+    text_file1 = open(imdir+rtdefs['psfs'], "w")
+    text_file2 = open(imdir+rtdefs['stars'], "w")
     text_file1.write("!\n!\n!\n")
     text_file2.write("!\n!\n!\n")
    
@@ -305,27 +305,27 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
         y = comparisons[k][0][1]
         name = comparisons[k][1]
 
-        # write comparisons to psf.cat
+        # write comparisons to PSF coordinates file.
         text_file1.write('%-5i %8.1f %8.1f %-15s \n' % (k+1, x-xoff, y-yoff, name) )
         #text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x-xoff, y-yoff))
 
-        # add comparisons as additional sources to stars.cat
+        # add comparisons as additional sources to stars coordinates file.
         text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (k+nt+1, x-xoff, y-yoff, name) )
         #text_file2.write('%-5i %8.1f %8.1f \n' % (k+nt+1, x-xoff, y-yoff))
 
     text_file1.close()
     text_file2.close()
-    print ("Wrote " + str(nc) + " in " + imdir + "psf.cat")
-    print ("Wrote " + str(nc+nt) + " in "  + imdir + "stars.cat")
+    print ("Wrote " + str(nc) + " in " + imdir + rtdefs['psfs'])
+    print ("Wrote " + str(nc+nt) + " in "  + imdir + rtdefs['stars'])
     return (1)
 
 
 #############################################################################
 def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
 
-    filename   = inputfile
-    psfpos     = " psf.cat "    # Hard coded filenames
-    starpos    = "stars.cat "   #       -""-
+    filename   = inputfile+" "
+    psfpos     = rtdefs['psfs']+" "    
+    starpos    = rtdefs['stars']+" "   
     badskyskew = rtdefs['skyskew']+" "
     badskychi  = rtdefs['skyfit']+" "
     clip       = rtdefs['cradius']+" "
@@ -493,7 +493,7 @@ class seekfits():
                         print "Offsets: (x,y) ", thisoffset
 
                         # create opphot init files
-                        t = write_optphot_init(dirs['reduced'], comparisons, targets, thisoffset)
+                        t = write_optphot_init(rtdefs, dirs['reduced'], comparisons, targets, thisoffset)
                         print "Wrote Opphot init files"
                         # call optimal and do the photometry.
                         frame_photometry = run_photometry(rtdefs, dirs, calib_fname, psf_fwhm)
@@ -554,7 +554,7 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     # Set up input and output directories
     path, filename = os.path.split(ref_filename) 
 
-    # read in defaults
+    # Read in default values from file
     with open (pathdefs, "r") as defsfile:
         defs = defsfile.readlines()
         print " Read defaults from: "+ pathdefs
@@ -571,12 +571,34 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     #data_dir = matching[0].split()[0]
 
     # Will use positional assignement for defaults
-    data_dir     = defs[1].split()[0]
-    bias_dir     = defs[2].split()[0]
-    dark_dir     = defs[3].split()[0]
-    flat_dir     = defs[4].split()[0]
+    # These are all string types:    
+    data_dir   = defs[1].split()[0]
+    bias_dir   = defs[2].split()[0]
+    dark_dir   = defs[3].split()[0]
+    flat_dir   = defs[4].split()[0] 
+    biaswc     = defs[5].split()[0]
+    darkwc     = defs[6].split()[0]
+    flatwc     = defs[7].split()[0]
+    mbias      = defs[8].split()[0]
+    mdark      = defs[9].split()[0]
+    mflat      = defs[10].split()[0]
+    psfs       = defs[11].split()[0]
+    stars      = defs[12].split()[0]
+    cprefix    = defs[13].split()[0]
+    sradius    = defs[14].split()[0]
+    aradius    = defs[15].split()[0]
+    cradius    = defs[16].split()[0]
+    starnumber = defs[17].split()[0]
+    skyskew    = defs[18].split()[0]
+    skyfit     = defs[19].split()[0]
+    gain       = defs[20].split()[0]
+    # These are numbers:
+    verbose    =   int(defs[21].split()[0])
+    tsleep     =   int(defs[22].split()[0])
+
     reduced_dir  = data_dir+"/reduced/"
     png_dir      = data_dir+"/png/"
+
     # Current root working dir
     current_dir = os.path.abspath(os.path.join(data_dir, os.pardir))
 
@@ -593,37 +615,19 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     call(['ln', '-s', rtphosdir+'/Timing/leap.dat', 'leapdat'])
     os.chdir(data_dir) # Move back to the data directory
 
-    # Make a dictionary with all the required directories
-    dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, \
-            'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir, 'png':png_dir}
-
-    # these are all string types
-    biaswc      = defs[5].split()[0]
-    darkwc      = defs[6].split()[0]
-    flatwc      = defs[7].split()[0]
-    mbias       = defs[8].split()[0]
-    mdark       = defs[9].split()[0]
-    mflat       = defs[10].split()[0]
-    cprefix     = defs[11].split()[0]
-    sradius     = defs[12].split()[0]
-    aradius     = defs[13].split()[0]
-    cradius     = defs[14].split()[0]
-    starnumber  = defs[15].split()[0]
-    skyskew     = defs[16].split()[0]
-    skyfit      = defs[17].split()[0]
-    gain        = defs[18].split()[0]
-    # these are numbers
-    verbose     =   int(defs[19].split()[0])
-    tsleep      =   int(defs[20].split()[0])
-
     # Convert verbose switch value to a string switch
     if verbose==1:
        verbose='Y'
     else:
        verbose='N'
 
+    # Make a dictionary with all the required directories.
+    dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, \
+            'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir, 'png':png_dir}
+
+    # Make a dictionary with all the required parameters.
     rtdefs = {'biaswc':biaswc, 'darkwc':darkwc, 'flatwc':flatwc, 'mbias':mbias,\
-               'mdark':mdark,   'mflat':mflat, 'cprefix':cprefix, \
+               'mdark':mdark,   'mflat':mflat, 'psfs':psfs, 'stars':stars, 'cprefix':cprefix, \
               'sradius':sradius, 'aradius':aradius, 'cradius':cradius, 'starnumber':starnumber, \
               'skyskew':skyskew, 'skyfit':skyfit, 'gain':gain, 'verbose':verbose, 'tsleep':tsleep}
 
@@ -683,7 +687,6 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     print targets
     print "Comparisons:"
     print comparisons
-
 
     # get FWHM of stellar PSF using comparison stars
     psf_fwhm = get_comps_fwhm(comparisons, xpapoint)

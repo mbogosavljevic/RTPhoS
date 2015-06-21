@@ -9,6 +9,8 @@
 masterbias.fits     # Masterbias filename
 masterdark.fits     # Masterdark filename
 masterflat.fits     # Masterflat filename
+psf.cat             # PSF star sources
+stars.cat           # Target sources
 c_     # Prefix for calibrated files
 5.0     # Search radius for optimal centroiding
 10.0     # Aperature radius for photometry
