@@ -39,20 +39,16 @@ def dict_of_floats(list_of_strings, num_items):
     
     for i in range(num_items):
         for j in range(num_items):
-            dummy = [float(x) for x in list_of_strings[j].split()]
+            #dummy = [float(x) for x in list_of_strings[j].split()]
+            # Keep values as strings since star name is also included
+            dummy = [x for x in list_of_strings[j].split()]
             dict_of_floats[j]=dummy[1:3]
             seeing = dummy[3]
-
+                        
     result = (dict_of_floats, seeing)
     return (result)
 
 ##############################################################################
-def namesplit(s, leader, trailer):
-    end_of_leader = s.index(leader) + len(leader)
-    start_of_trailer = s.index(trailer, end_of_leader)
-    out = s[end_of_leader:start_of_trailer]
-    return out
-
 # Define model function to be used for PSF fit to the stars:
 # in this case its a Gauss with a center Xc, sigma, amplitude A and base level B
 def gauss(x, *p):
@@ -134,7 +130,7 @@ def get_comps_fwhm(comparisons, xpapoint):
     nc = len(comparisons)
     tot_fwhm = 0.
     # comparisons is alist of tuples, in each tuple first element has x,y,r
-    print "I will use", nc, " stars for FWHM"
+    print ("I will use", nc, " stars for FWHM")
     for i in range(0,nc):
         xt = comparisons[i][0][0]
         yt = comparisons[i][0][1]
@@ -146,9 +142,8 @@ def get_comps_fwhm(comparisons, xpapoint):
         # caution - I don't know why order of x and y is inverted here
         crop_image = image[y1:y2,x1:x2]
         fwhm = fwhm_from_star(crop_image)
-        sname = (comparisons[i][1])
-        cname = namesplit(sname,'{','}')
-        print i+1, cname, fwhm
+        cname = (comparisons[i][1])
+        print (i+1, cname, fwhm)
         tot_fwhm = tot_fwhm + fwhm
         
     mean_fwhm = tot_fwhm / nc
@@ -299,26 +294,24 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
         x = targets[i][0][0]
         y = targets[i][0][1]
         name = targets[i][1]
-        name2 = name[name.find("{")+1:name.find("}")]
 
         # write the targets as first source(s) in stars.cat
-        # text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (i+1, x-xoff, y-yoff, name2) )
-        text_file2.write('%-5i %8.1f %8.1f \n' % (i+1, x-xoff, y-yoff))
+        text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (i+1, x-xoff, y-yoff, name) )
+        #text_file2.write('%-5i %8.1f %8.1f \n' % (i+1, x-xoff, y-yoff))
 
     nc = len(comparisons)
     for k in range(0,nc):
         x = comparisons[k][0][0]
         y = comparisons[k][0][1]
         name = comparisons[k][1]
-        name2 = name[name.find("{")+1:name.find("}")]
 
         # write comparisons to psf.cat
-        # text_file1.write('%-5i %8.1f %8.1f %-15s \n' % (k+1, x-xoff, y-yoff, name2) )
-        text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x-xoff, y-yoff))
+        text_file1.write('%-5i %8.1f %8.1f %-15s \n' % (k+1, x-xoff, y-yoff, name) )
+        #text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x-xoff, y-yoff))
 
         # add comparisons as additional sources to stars.cat
-        # text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (k+nt+1, x-xoff, y-yoff, name2) )
-        text_file2.write('%-5i %8.1f %8.1f \n' % (k+nt+1, x-xoff, y-yoff))
+        text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (k+nt+1, x-xoff, y-yoff, name) )
+        #text_file2.write('%-5i %8.1f %8.1f \n' % (k+nt+1, x-xoff, y-yoff))
 
     text_file1.close()
     text_file2.close()
@@ -328,33 +321,29 @@ def write_optphot_init(imdir, comparisons, targets, thisoffset):
 
 
 #############################################################################
-def run_photometry(dirs, inputfile):
-
-    os.chdir(dirs['reduced'])  # Move to the reduced image directory
-    p = Popen(["optimal"], stdin=PIPE, stdout=PIPE)
+def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
 
     filename   = inputfile
-    psfpos     = " psf.cat "
-    starpos    = "stars.cat "
-    verbose    = "N"
-    badskyskew = "-1 "
-    badskychi  = "-1 "
-    fwhm       = "2.0 "
-    clip       = "5.0 "
-    aprad      = "10.0 "
-    iopt       = "1 "
-    searchrad  = "5.0 "
-    adu        = "2.0"
-
+    psfpos     = " psf.cat "    # Hard coded filenames
+    starpos    = "stars.cat "   #       -""-
+    badskyskew = rtdefs['skyskew']+" "
+    badskychi  = rtdefs['skyfit']+" "
+    clip       = rtdefs['cradius']+" "
+    aprad      = rtdefs['aradius']+" "
+    iopt       = rtdefs['starnumber']+" "
+    searchrad  = rtdefs['sradius']+" "
+    adu        = rtdefs['gain']
+    verbose    = rtdefs['verbose']
+    fwhm       = str(psf_fwhm)+" "
+    
     input_txt=[]
     input_txt.append(filename+psfpos+starpos+verbose)
     input_txt.append(badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu)
 
+    os.chdir(dirs['reduced'])  # Move to the reduced image directory
+    p = Popen(["optimal"], stdin=PIPE, stdout=PIPE)
     data_out = p.communicate(input_txt[0]+"\n"
                              +input_txt[1]+"\n")[0]
-
-#    print input_txt[0]
-#    print input_txt[1]
 
     results=data_out.split("\n")
     total_records = len(results)-1
@@ -367,7 +356,7 @@ def run_photometry(dirs, inputfile):
     optimal_res=dict_of_floats(optimal_data, total_stars)
     optimal_stars=optimal_res[0]
     seeing = optimal_res[1]
-
+    
     aperture_res=dict_of_floats(aperture_data, total_stars)
     aperture_stars=aperture_res[0]
     seeing = aperture_res[1]
@@ -454,10 +443,9 @@ class seekfits():
                   for filein in added:                  
                      # check if it is a fits file
                      filename = dirs['data']+'/'+filein
-                     print filename
+                     
                      # WARNING - hardcoded the '.fits' or '.fit' extensions
                      if (filename.endswith('.fits') or filename.endswith('.fit')):
-
                         # Can load both data and header with this trick
                         data2, hdr = pyfits.getdata(filename, header=True) 
                         print("I read image: "+filename)
@@ -504,11 +492,11 @@ class seekfits():
                         thisoffset = zach_offsets(dataref,data2)
                         print "Offsets: (x,y) ", thisoffset
 
-                        # create optphot init files
+                        # create opphot init files
                         t = write_optphot_init(dirs['reduced'], comparisons, targets, thisoffset)
                         print "Wrote Opphot init files"
                         # call optimal and do the photometry.
-                        frame_photometry = run_photometry(dirs, calib_fname)
+                        frame_photometry = run_photometry(rtdefs, dirs, calib_fname, psf_fwhm)
 
                         # Deconstruct the photometry results from optimal.f90
                         (optimaldict, aperatdict, seeing) = frame_photometry
@@ -519,13 +507,14 @@ class seekfits():
                         print "============================================"
                         print "FILENAME ", filename
                         print "FRAME_TIME ", frame_time, frame_timerr, count, len(optimalist)
+                        alltargets =targets + comparisons
                         #print "Optimal Photometry Results:"
                         for i in range(0,len(optimalist)):
-                            print "OPT_STAR ", i+1, optimalist[i][0], optimalist[i][1], seeing
+                            print alltargets[i][1], optimalist[i][0], optimalist[i][1], seeing
                         print "------------------------------"
                         #print "Aperature Photometry Results:"
                         for i in range(0,len(aperatlist)):
-                            print "APER_STAR ", i+1, aperatlist[i][0], aperatlist[i][1], seeing
+                            print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], seeing
                         print
 
                         # xdata.append(frame_time)
@@ -609,23 +598,29 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
             'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir, 'png':png_dir}
 
     # these are all string types
-    biaswc  = defs[5].split()[0]
-    darkwc  = defs[6].split()[0]
-    flatwc  = defs[7].split()[0]
-    mbias   = defs[8].split()[0]
-    mdark   = defs[9].split()[0]
-    mflat   = defs[10].split()[0]
-    cprefix = defs[11].split()[0]
-    # numbers 
-    sradius     = float(defs[12].split()[0])
-    aradius     = float(defs[13].split()[0])
-    cradius     = float(defs[14].split()[0])
-    starnumber  =   int(defs[15].split()[0])
-    skyskew     =   int(defs[16].split()[0])
-    skyfit      =   int(defs[17].split()[0])
-    gain        = float(defs[18].split()[0])
+    biaswc      = defs[5].split()[0]
+    darkwc      = defs[6].split()[0]
+    flatwc      = defs[7].split()[0]
+    mbias       = defs[8].split()[0]
+    mdark       = defs[9].split()[0]
+    mflat       = defs[10].split()[0]
+    cprefix     = defs[11].split()[0]
+    sradius     = defs[12].split()[0]
+    aradius     = defs[13].split()[0]
+    cradius     = defs[14].split()[0]
+    starnumber  = defs[15].split()[0]
+    skyskew     = defs[16].split()[0]
+    skyfit      = defs[17].split()[0]
+    gain        = defs[18].split()[0]
+    # these are numbers
     verbose     =   int(defs[19].split()[0])
     tsleep      =   int(defs[20].split()[0])
+
+    # Convert verbose switch value to a string switch
+    if verbose==1:
+       verbose='Y'
+    else:
+       verbose='N'
 
     rtdefs = {'biaswc':biaswc, 'darkwc':darkwc, 'flatwc':flatwc, 'mbias':mbias,\
                'mdark':mdark,   'mflat':mflat, 'cprefix':cprefix, \
@@ -661,7 +656,9 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
 
     for l in range(0,n):
        if (sources[l].comment is not None):
-            print (l, sources[l].name, sources[l].coord_list, sources[l].comment)
+            sources[l].comment = sources[l].comment[sources[l].comment.find("{")+1:\
+            sources[l].comment.find("}")]
+            print (l+1, sources[l].comment, sources[l].coord_list)
        else:
             print "You have some unlabeled sources!"
             print sources[l].coord_list
@@ -673,10 +670,6 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     nc = len(comparisons)
     targets =  [(s.coord_list,s.comment) for s in sources if not("C-" in s.comment)]
     nt = len(targets)
-    print "Targets:"
-    print targets
-    print "Comparisons:"
-    print comparisons
 
     if nc == 0:
         print("Must have one comparison star labeled as 'C-<name>' ")
@@ -686,6 +679,12 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
         print("No target selected!")
         raise Exception("No target selected!")
     
+    print "Targets:"
+    print targets
+    print "Comparisons:"
+    print comparisons
+
+
     # get FWHM of stellar PSF using comparison stars
     psf_fwhm = get_comps_fwhm(comparisons, xpapoint)
     print "Found PSF FWHM:",  ("%.2f" % psf_fwhm)

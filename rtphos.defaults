@@ -1,13 +1,13 @@
-/home/milan/Pipeline/rtphos.defaults     # File containing new settings
-/home/milan/Pipeline/data     # Raw data frames
-/home/milan/Pipeline/bias     # Bias frames for calibration
-/home/milan/Pipeline/dark     # Dark frames for calibration
-/home/milan/Pipeline/flat     # Flat frames for calibration
+/home/zac/Work/Pipeline/Testbed/data/rtphos.defaults     # File containing new settings
+/home/zac/Work/Pipeline/Testbed/data     # Raw data frames
+/home/zac/Work/Pipeline/Testbed/bias     # Bias frames for calibration
+/home/zac/Work/Pipeline/Testbed/dark     # Dark frames for calibration
+/home/zac/Work/Pipeline/Testbed/flat     # Flat frames for calibration
 *bias*     # bias frames wildcard
 *dark*     # dark frames wildcard
 *flat*     # flat frames wildcard
 masterbias.fits     # Masterbias filename
-massterdark.fits     # Masterdark filename
+masterdark.fits     # Masterdark filename
 masterflat.fits     # Masterflat filename
 c_     # Prefix for calibrated files
 5.0     # Search radius for optimal centroiding
@@ -17,5 +17,5 @@ c_     # Prefix for calibrated files
 -1     # Sky profile skew for optimal photometry
 -1     # Sky fitting switch for optimal photometry
 10.0     # Instrument Gain e-/ADU
-1     # Verbose output switch
+0     # Verbose output switch
 3     # Sleep time before checking for new frames
