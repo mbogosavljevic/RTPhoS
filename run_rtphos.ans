@@ -1,18 +1,20 @@
 param rtphosdef
- pathrtphos  entry {RTPhoS location}        "/home/milan/RTPhoS"
- pathdefs    entry {RTPhoS settings}        "/home/milan/Pipeline/rtphos.defaults"
- pathlog     entry {RTPhoS logfile}         "/home/milan/Pipeline/rtphos.log"
- pathans     entry {DS9 Analysis settings}  "/home/milan/Pipeline/rtphos.ans"
- pathdata    entry {Raw data frames}	    "/home/milan/Pipeline/data"
- pathbias    entry {Bias frames for calibration}     "/home/milan/Pipeline/bias"            
- pathdark    entry {Dark frames for calibration}     "/home/milan/Pipeline/dark"            
- pathflat    entry {Flat frames for calibration}     "/home/milan/Pipeline/flat"            
+ pathrtphos  entry {RTPhoS location}        "/home/zac/Work/Pipeline/Testbed/data"
+ pathdefs    entry {RTPhoS settings}        "/home/zac/Work/Pipeline/Testbed/data/rtphos.defaults"
+ pathlog     entry {RTPhoS logfile}         "/home/zac/Work/Pipeline/Testbed/data/rtphos.log"
+ pathans     entry {DS9 Analysis settings}  "/home/zac/Work/Pipeline/Testbed/data/rtphos.ans"
+ pathdata    entry {Raw data frames}	    "/home/zac/Work/Pipeline/Testbed/data"
+ pathbias    entry {Bias frames for calibration}     "/home/zac/Work/Pipeline/Testbed/bias"            
+ pathdark    entry {Dark frames for calibration}     "/home/zac/Work/Pipeline/Testbed/dark"            
+ pathflat    entry {Flat frames for calibration}     "/home/zac/Work/Pipeline/Testbed/flat"            
  stringbias  entry {bias frames wildcard}	     "*bias*"                                      
  stringdark  entry {dark frames wildcard}	     "*dark*"                                      
  stringflat  entry {flat frames wildcard}	     "*flat*"                                      
  namebias    entry {Masterbias filename}	     "masterbias.fits"                             
  namedark    entry {Masterdark filename}	     "massterdark.fits"                            
- nameflat    entry {Masterflat filename}	     "masterflat.fits"                             
+ nameflat    entry {Masterflat filename}	     "masterflat.fits" 
+ namepsfs    entry {PSF star list filename}	     "psf.cat" 
+ namestars   entry {Target star list filename}   "stars.cat"                           
  cprefix     entry {Prefix for calibrated files}     "c_"                                          
  sradius     entry {Search radius for optimal centroiding} 5.0
  aradius     entry {Aperature radius for photometry} 10.0 
@@ -21,7 +23,7 @@ param rtphosdef
  skyskew     entry {Sky profile skew for optimal photometry} -1  
  skyfit      entry {Sky fitting switch for optimal photometry} -1
  gain        entry {Instrument Gain e-/ADU} 10.0
- verbose     checkbox {Verbose output switch} 1
+ verbose     checkbox {Verbose output switch} 0
  tsleep      entry {Sleep time before checking for new frames [s]} 3
 endparam
 
@@ -41,7 +43,7 @@ endparam
 RTPhoS Settings
 *
 menu
-$param(rtphosdef);  $param(gifparams); $param (sourceparams) ; xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/write_rtphos_defaults.py $pathrtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep $source $comp1 $comp2 $comp3 $nlast" 
+$param(rtphosdef);  $param(gifparams); $param (sourceparams) ; xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/write_rtphos_defaults.py $pathrtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $namepsfs $namestars $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep $source $comp1 $comp2 $comp3 $nlast" 
 
 Run RTPhoS
 *
