@@ -26,7 +26,6 @@ import ccdcalib
 from   scipy.optimize import curve_fit
 from   scipy import signal, ndimage
 from   subprocess import call, Popen, PIPE
-import matplotlib.pyplot as plt
 import f2n
 import sys
 
