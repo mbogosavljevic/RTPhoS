@@ -695,7 +695,6 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
 if  __name__ == "__main__":
 
     import sys
-    plt.ion()
     rtphosdir, dummy = os.path.split(sys.argv[0]) 
     xpapoint       = sys.argv[1]
     pathdefs       = sys.argv[2]
