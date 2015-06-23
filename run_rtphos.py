@@ -42,6 +42,7 @@ def dict_of_floats(list_of_strings, num_items):
             #dummy = [float(x) for x in list_of_strings[j].split()]
             # Keep values as strings since star name is also included
             dummy = [x for x in list_of_strings[j].split()]
+            print ("Dummy", dummy)
             dict_of_floats[j]=dummy[1:3]
             seeing = dummy[3]
                         
@@ -344,13 +345,19 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
     p = Popen(["optimal"], stdin=PIPE, stdout=PIPE)
     data_out = p.communicate(input_txt[0]+"\n"
                              +input_txt[1]+"\n")[0]
-
+    print " ### OPTHOT OUTPUT START ###"
+    print data_out
+    print " ### OPTPHOT OUTPUT END ###"
     results=data_out.split("\n")
     total_records = len(results)-1
     total_stars=total_records/2
 
     optimal_data = results[0:total_stars]
     aperture_data = results[total_stars:total_records]
+
+# Debug
+    #print ("Optimal data", optimal_data)
+    #print ("Aperture data", aperture_data)
 
     # Gets a float dictionary from a list of results (optimal or aperture)
     optimal_res=dict_of_floats(optimal_data, total_stars)
