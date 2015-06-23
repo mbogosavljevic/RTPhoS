@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # M. Bogosavljevic, AOB, June 2015
 
-def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, wildcard, nframes, tsleep, source, comp1, comp2, comp3, nlast):
+def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, psfs, stars, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, wildcard, nframes, tsleep, source, comp1, comp2, comp3, nlast):
 
     defs_file = open(pathdefs, "w")
 
@@ -16,6 +16,8 @@ def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbia
     defs_file.write(namebias   + "     # Masterbias filename\n")		
     defs_file.write(namedark   + "     # Masterdark filename\n")		
     defs_file.write(nameflat   + "     # Masterflat filename\n")		
+    defs_file.write(psfs       + "     # list of objects for psf \n")
+    defs_file.write(stars      + "     # full list of objects \n")	
     defs_file.write(cprefix    + "     # Prefix for calibrated files\n")
     defs_file.write(sradius    + "     # Search radius for optimal centroiding\n")	
     defs_file.write(aradius    + "     # Aperature radius for photometry\n")	
@@ -47,6 +49,8 @@ def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbia
     defs_file.write(" namebias    entry {Masterbias filename}	       \"" +   namebias   + "\"\n" )  
     defs_file.write(" namedark    entry {Masterdark filename}	       \"" +   namedark   + "\"\n" )       
     defs_file.write(" nameflat    entry {Masterflat filename}	       \"" +   nameflat   + "\"\n" )
+    defs_file.write(" psfs        entry {list of objects for psf}      \"" +   psfs       + "\"\n" )
+    defs_file.write(" stars       entry {full list of objects}         \"" +   stars      + "\"\n" )
     defs_file.write(" cprefix     entry {Prefix for calibrated files}   \"" +  cprefix    + "\"\n" )
     defs_file.write(" sradius     entry {Search radius for optimal centroiding}     "   +  sradius + "\n" )
     defs_file.write(" aradius     entry {Aperature radius for photometry}           "   +  aradius + "\n" )
@@ -78,7 +82,7 @@ def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbia
     defs_file.write("RTPhoS Settings\n")
     defs_file.write("*\n")
     defs_file.write("menu\n")
-    defs_file.write("$param(rtphosdef);  $param(gifparams); $param(sourceparams); xterm -hold -sb -sl 2000 -e bash -c \"$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep $source $comp1 $comp2 $comp3 $nlast \" \n")
+    defs_file.write("$param(rtphosdef);  $param(gifparams); $param(sourceparams); xterm -hold -sb -sl 2000 -e bash -c \"$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep $source $comp1 $comp2 $comp3 $nlast \" \n")
     defs_file.write("\n")
 
     defs_file.write("RUN RTPHOS\n")
@@ -119,22 +123,25 @@ if  __name__ == "__main__":
     namebias       = sys.argv[12]
     namedark       = sys.argv[13]
     nameflat       = sys.argv[14]
-    cprefix        = sys.argv[15]
-    sradius        = sys.argv[16]
-    aradius        = sys.argv[17]
-    cradius        = sys.argv[18]
-    starnumber     = sys.argv[19]
-    skyskew        = sys.argv[20]
-    skyfit         = sys.argv[21]
-    gain           = sys.argv[22]
-    verbose        = sys.argv[23]
-    wildcard       = sys.argv[24]
-    nframes        = sys.argv[25]
-    tsleep         = sys.argv[26]
-    source         = sys.argv[27]
-    comp1          = sys.argv[28]
-    comp2          = sys.argv[29]
-    comp3          = sys.argv[30]
-    nlast          = sys.argv[31]
+    psfs           = sys.argv[15]
+    stars          = sys.argv[16]
+    cprefix        = sys.argv[17]
+    sradius        = sys.argv[18]
+    aradius        = sys.argv[19]
+    cradius        = sys.argv[20]
+    starnumber     = sys.argv[21]
+    skyskew        = sys.argv[22]
+    skyfit         = sys.argv[23]
+    gain           = sys.argv[24]
+    verbose        = sys.argv[25]
+    wildcard       = sys.argv[26]
+    nframes        = sys.argv[27]
+    tsleep         = sys.argv[28]
+    source         = sys.argv[29]
+    comp1          = sys.argv[30]
+    comp2          = sys.argv[31]
+    comp3          = sys.argv[32]
+    nlast          = sys.argv[33]
 
-    write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, wildcard, nframes, tsleep, source, comp1, comp2, comp3, nlast)
+    write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, psfs, stars, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, wildcard, nframes, tsleep, source, comp1, comp2, comp3, nlast)
+
