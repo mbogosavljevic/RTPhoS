@@ -42,7 +42,7 @@ def dict_of_floats(list_of_strings, num_items):
             #dummy = [float(x) for x in list_of_strings[j].split()]
             # Keep values as strings since star name is also included
             dummy = [x for x in list_of_strings[j].split()]
-            print ("Dummy", dummy)
+            #print ("Dummy", dummy)
             dict_of_floats[j]=dummy[1:3]
             seeing = dummy[3]
                         
@@ -345,9 +345,12 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
     p = Popen(["optimal"], stdin=PIPE, stdout=PIPE)
     data_out = p.communicate(input_txt[0]+"\n"
                              +input_txt[1]+"\n")[0]
-    print " ### OPTHOT OUTPUT START ###"
-    print data_out
-    print " ### OPTPHOT OUTPUT END ###"
+ 
+    if verbose=='Y':
+        print " ### OPTHOT OUTPUT START ###"
+        print data_out
+        print " ### OPTPHOT OUTPUT END ###"
+
     results=data_out.split("\n")
     total_records = len(results)-1
     total_stars=total_records/2
@@ -375,21 +378,29 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
 
 #############################################################################
 def outputfiles(alltargets, optimalist, aperatlist, seeing, \
-                frame_time, frame_timerr, count):
+                frame_time, frame_timerr, pdatetime, filename, count):
 
     # Loop will write out files with the following outputformat:
     # seq. number, frame_time, frame_timerr, flux, flux error, seeing
     for i in range(0,len(alltargets)):
         # First write the optimal photometry data
         with open(alltargets[i][1]+".opt", "a") as outfile:
-            outfile.write(str(count)+" "+str(frame_time)+\
-            " "+ str(frame_timerr)+" "+str(optimalist[i][0])+\
-            " "+ str(optimalist[i][1])+" "+str(seeing)+" "+"\n")
+            outdata = (count, pdatetime, frame_time, frame_timerr, optimalist[i][0], \
+                       optimalist[i][1], float(seeing), filename)
+            fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s \n'
+            outfile.write(fmtstring % outdata)
+#            outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
+#            " "+ str(frame_timerr)+" "+str(optimalist[i][0])+" "+\
+#            str(optimalist[i][1])+" "+str(seeing)+" "+filename+" \n")
         # Now write the aperture photometry data
         with open(alltargets[i][1]+".dat", "a") as outfile:
-            outfile.write(str(count)+" "+str(frame_time)+\
-            " "+ str(frame_timerr)+" "+str(aperatlist[i][0])+\
-            " "+ str(aperatlist[i][1])+" "+str(seeing)+" "+"\n")
+            outdata = (count, pdatetime, frame_time, frame_timerr, aperatlist[i][0], \
+                       aperatlist[i][1], float(seeing), filename)
+            fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s \n'
+            outfile.write(fmtstring % outdata)
+#            outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
+#            " "+ str(frame_timerr)+" "+str(aperatlist[i][0])+" "+\
+#            str(aperatlist[i][1])+" "+str(seeing)+" "+filename+" \n")
 
     ### Files are always appended. This might be a problem when running a
     ### new round of rtphos of the same data. Perhaps we should make rtphos
@@ -491,21 +502,23 @@ class seekfits():
 
                         if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":  
                            mdatetime = checklist['DATE']+" "+checklist['TIME']
-                           
+                           pdatetime = checklist['DATE']+"|"+checklist['TIME']
+                           print ("HERE",mdatetime)
                            # this is needed to get plot-able UTC time
-                           sdatetime = datetime.strptime(mdatetime,  "%Y-%m-%d %H:%M:%S")
-                           
+                           sdatetime = datetime.strptime(mdatetime,  "%Y-%m-%d %H:%M:%S")                        
                            mdatetime = Time(mdatetime, format='iso', scale='utc')
                            time_frame  = mdatetime.jd # in days
-                           exp = float(checklist['EXPOSURE']) # in seconds
-                           midexp = (exp / 2.0) / 86400. # in days
+                           exposure = float(checklist['EXPOSURE']) # in seconds
+                           midexp = (exposure / 2.0) / 86400. # in days
                            # Make frame time the middle of the exposure
-                           frame_time = format(time_frame + midexp, '.15g')
-                           frame_timerr = format(midexp, '.15g')   
+                           # these are now float variables, not string
+                           frame_time = float(time_frame) + midexp
+                           frame_timerr = midexp
                         else:
                            time_BDJD = barytime(checklist)
-                           frame_time = format(float(time_BDJD[1]), '.15g')
-                           frame_timerr  = format(float(time_BDJD[2]), '.15g')
+                           frame_time = float(time_BDJD[1])
+                           #frame_timerr  = format(float(time_BDJD[2]), '.15g')
+                           frame_timerr = midexp
 
                         # Strip JD and reduced it to 2 significant figures.
                         # stripjd = int(float(frame_time)/100.0)*100.0
@@ -536,9 +549,10 @@ class seekfits():
                         aperatlist  = aperatdict.values()
 
                         # File output
+                        junk, sfilename = os.path.split(filename)
                         alltargets = targets + comparisons
                         outputfiles(alltargets, optimalist, aperatlist, seeing, \
-                                    frame_time, frame_timerr, count)
+                                    frame_time, frame_timerr, pdatetime, sfilename, count)
 
                         # Screen output
                         print "============================================"
