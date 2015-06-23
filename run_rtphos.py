@@ -412,95 +412,47 @@ def outputfiles(alltargets, optimalist, aperatlist, seeing, \
 
 
 #############################################################################
-class seekfits():
+def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
 # requires zach_offsets, write_optphot_init
     
-    #Suppose we know the x range
-    #min_x = 0
-    #max_x = 10
+    before = sorted(os.listdir(dirs['data']))
+    # a switch to first check if files found on startup
+    # need to be reduced or not (if the reduced output exists)
+    reducebefore = True
 
-    def on_launch(self, dirs):
-        #Set up plot
-        self.figure, self.ax = plt.subplots()
-        self.lines, = self.ax.plot([],[], 'o')
-#        self.ax.errorbar([],[],yerr=[])
-#        self.lines, = self.ax.errorbar([],[],[],[],fmt='o')
-#        self.line, (down, up), verts = self.ax.errorbar([],[],yerr=[],ftm='o')
-        #Autoscale on unknown axis and known lims on the other
-        self.ax.set_autoscaley_on(True)
-        self.ax.set_autoscalex_on(True)
-        plt.gcf().autofmt_xdate()
-        #self.ax.set_xlim(self.min_x, self.max_x)
-        #Other stuff
-        self.ax.grid()
-        self.ax.set_xlabel('Time')
-        self.ax.set_ylabel('Counts')
-        print("IMDIR: "+dirs['data'])
+    # counter needed just to print out progress
+    count = 0
 
-    def on_running(self, xdata, ydata, yerror):
-        #Update data (with the new _and_ the old points)
-#        self.lines, = self.ax.plot(xdata, ydata, 'o')
-#        self.ax.errorbar(xdata, ydata, yerr=yerror)
-#        self.lines, = self.ax.plot(xdata,ydata, 'o')
-        self.lines.set_xdata(xdata)
-        self.lines.set_ydata(ydata)
-#        down.set_ydata()
-#    bottoms.set_ydata(y - yerr)
-#    tops.set_ydata(y + yerr)
-        
-        #Need both of these in order to rescale
-        self.ax.relim()
-        self.ax.autoscale_view()
-        #We need to draw *and* flush
-        self.figure.canvas.draw()
-        self.figure.canvas.flush_events()
+    try:
+       while 1:
+           print "*LISTENING*", dirs['data'], time.strftime('%X %x %Z')
+           after = sorted(os.listdir(dirs['data']))
+           added = [f for f in after if not f in before]
 
+           if reducebefore:
+               added = added + before
+               reducebefore = False
 
-    def __call__(self, rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm ):
-        self.on_launch(dirs)
-        xdata = []
-        ydata = []
-        xerror = []
-        yerror = []
-
-        before = sorted(os.listdir(dirs['data']))
-        # a switch to first check if files found on startup
-        # need to be reduced or not (if the reduced output exists)
-        reducebefore = True
-
-        # counter needed just to print out progress
-        count = 0
-
-        try:
-           while 1:
-                print "*LISTENING*", dirs['data'], time.strftime('%X %x %Z')
-                after = sorted(os.listdir(dirs['data']))
-                added = [f for f in after if not f in before]
-
-                if reducebefore:
-                    added = added + before
-                    reducebefore = False
-
-                if added: 
-                  count = count + 1             
-                  for filein in added:                  
-                     # check if it is a fits file
-                     filename = dirs['data']+'/'+filein
+           if added:   
+               for filein in added:                  
+                   # check if it is a fits file
+                   filename = dirs['data']+'/'+filein
                      
-                     # WARNING - hardcoded the '.fits' or '.fit' extensions
-                     if (filename.endswith('.fits') or filename.endswith('.fit')):
-                        # Can load both data and header with this trick
-                        data2, hdr = pyfits.getdata(filename, header=True) 
-                        print("I read image: "+filename)
+                   # WARNING - hardcoded the '.fits' or '.fit' extensions
+                   if (filename.endswith('.fits') or filename.endswith('.fit')):
+                       # Can load both data and header with this trick
+                       data2, hdr = pyfits.getdata(filename, header=True) 
+                       print("I read image: "+filename)
 
-                        # First check that all the required header keywords are in
-                        # the FITS file and then get the time stamp for this frame.
-                        # If the RA and DEC of the image are in the headers then
-                        # time will be in Barycentric Dynamical Julian Date. If not 
-                        # then time will be in plain simple Julian Date.
-                        checklist = ccdcalib.makechecklist(hdr)
+                       # First check that all the required header keywords are in
+                       # the FITS file and then get the time stamp for this frame.
+                       # If the RA and DEC of the image are in the headers then
+                       # time will be in Barycentric Dynamical Julian Date. If not 
+                       # then time will be in plain simple Julian Date.
+                       checklist = ccdcalib.makechecklist(hdr)
 
-                        if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":  
+                       count = count + 1 
+                       if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":  
                            mdatetime = checklist['DATE']+" "+checklist['TIME']
                            pdatetime = checklist['DATE']+"|"+checklist['TIME']
                            print ("HERE",mdatetime)
@@ -514,80 +466,66 @@ class seekfits():
                            # these are now float variables, not string
                            frame_time = float(time_frame) + midexp
                            frame_timerr = midexp
-                        else:
+                       else:
                            time_BDJD = barytime(checklist)
                            frame_time = float(time_BDJD[1])
                            #frame_timerr  = format(float(time_BDJD[2]), '.15g')
                            frame_timerr = midexp
 
-                        # Strip JD and reduced it to 2 significant figures.
-                        # stripjd = int(float(frame_time)/100.0)*100.0
-                        # twosig_time =  float(frame_time) - stripjd
+                       # Strip JD and reduced it to 2 significant figures.
+                       # stripjd = int(float(frame_time)/100.0)*100.0
+                       # twosig_time =  float(frame_time) - stripjd
 
-                        # Now initiate the calibration, offsets and photometry.
-                        # ccdcalib will either calibrate the image and place the
-                        # calibrated image file in the '/reduced/' directory or
-                        # if the image did not require calibration just copy the image
-                        # to the '/reduced/' directory. In either case the image will
-                        # have a 'c_' prefix to indicate that ccdcalib has seen it.
-                        calib_data = ccdcalib.calib(rtdefs, dirs, filename, data2, hdr)
-                        (data2, hdr, calib_fname) = calib_data
+                       # Now initiate the calibration, offsets and photometry.
+                       # ccdcalib will either calibrate the image and place the
+                       # calibrated image file in the '/reduced/' directory or
+                       # if the image did not require calibration just copy the image
+                       # to the '/reduced/' directory. In either case the image will
+                       # have a 'c_' prefix to indicate that ccdcalib has seen it.
+                       calib_data = ccdcalib.calib(rtdefs, dirs, filename, data2, hdr)
+                       (data2, hdr, calib_fname) = calib_data
 
-                        # find offsets from dataref
-                        thisoffset = zach_offsets(dataref,data2)
-                        print "Offsets: (x,y) ", thisoffset
+                       # find offsets from dataref
+                       thisoffset = zach_offsets(dataref,data2)
+                       print "Offsets: (x,y) ", thisoffset
 
-                        # create opphot init files
-                        t = write_optphot_init(rtdefs, dirs['reduced'], comparisons, targets, thisoffset)
-                        print "Wrote Opphot init files"
-                        # call optimal and do the photometry.
-                        frame_photometry = run_photometry(rtdefs, dirs, calib_fname, psf_fwhm)
+                       # create opphot init files
+                       t = write_optphot_init(rtdefs, dirs['reduced'], comparisons, targets, thisoffset)
+                       print "Wrote Opphot init files"
+                       # call optimal and do the photometry.
+                       frame_photometry = run_photometry(rtdefs, dirs, calib_fname, psf_fwhm)
+  
+                       # Deconstruct the photometry results from optimal.f90
+                       (optimaldict, aperatdict, seeing) = frame_photometry
+                       optimalist  = optimaldict.values()
+                       aperatlist  = aperatdict.values()
 
-                        # Deconstruct the photometry results from optimal.f90
-                        (optimaldict, aperatdict, seeing) = frame_photometry
-                        optimalist  = optimaldict.values()
-                        aperatlist  = aperatdict.values()
+                       # File output
+                       junk, sfilename = os.path.split(filename)
+                       alltargets = targets + comparisons
+                       outputfiles(alltargets, optimalist, aperatlist, seeing, \
+                                   frame_time, frame_timerr, pdatetime, sfilename, count)
 
-                        # File output
-                        junk, sfilename = os.path.split(filename)
-                        alltargets = targets + comparisons
-                        outputfiles(alltargets, optimalist, aperatlist, seeing, \
-                                    frame_time, frame_timerr, pdatetime, sfilename, count)
+                       # Screen output
+                       print "============================================"
+                       print "FILENAME ", filename
+                       print "FRAME_TIME ", frame_time, frame_timerr, count, len(optimalist)
+                       #print "Optimal Photometry Results:"
+                       for i in range(0,len(optimalist)):
+                           print alltargets[i][1], optimalist[i][0], optimalist[i][1], seeing
+                       print "------------------------------"
+                       #print "Aperature Photometry Results:"
+                       for i in range(0,len(aperatlist)):
+                           print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], seeing
+                       print
 
-                        # Screen output
-                        print "============================================"
-                        print "FILENAME ", filename
-                        print "FRAME_TIME ", frame_time, frame_timerr, count, len(optimalist)
-                        #print "Optimal Photometry Results:"
-                        for i in range(0,len(optimalist)):
-                            print alltargets[i][1], optimalist[i][0], optimalist[i][1], seeing
-                        print "------------------------------"
-                        #print "Aperature Photometry Results:"
-                        for i in range(0,len(aperatlist)):
-                            print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], seeing
-                        print
+           before = after
+           time.sleep(tsleep)   # Wait for tsleep seconds before repeating
 
-                        # xdata.append(frame_time)
-                        xdata.append(sdatetime) # this is a datetime.datetime object
-                        # NEED TO CHANGE THE XAXIS TYPE TO TIME, SOMEHOW
-                        # http://stackoverflow.com/questions/19079143/how-to-plot-time-series-in-python
-                        # http://stackoverflow.com/questions/5498510/creating-graph-with-date-and-time-in-axis-labels-with-matplotlib
-                        # http://stackoverflow.com/questions/17987468/custom-date-range-x-axis-in-time-series-with-matplotlib
-                        ydata.append(optimalist[1][0])
-                        
-                        xer = 1
-                        xerror.append(xer)
-                        yerror.append(optimalist[1][1])
-                        
-                        self.on_running(xdata, ydata, yerror)
-                        
-                before = after
-                time.sleep(tsleep)   # Wait for tsleep seconds before repeating
+    except KeyboardInterrupt:
+       pass
 
-        except KeyboardInterrupt:
-           pass
-
-        return # xdata, ydata
+    return
 
 #############################################################################
 def run_rtphos(rtphosdir, xpapoint, pathdefs):
@@ -753,8 +691,7 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
 
     # Do the photometry
     tsleep = 3                    # Arbitrary time delay
-    photometry = seekfits()
-    photometry(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
+    seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
     
 if  __name__ == "__main__":
 
