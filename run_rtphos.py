@@ -366,9 +366,34 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
     os.chdir(dirs['data'])  # Move back to the raw data directory
     return photometry_result
 
+#############################################################################
+def outputfiles(alltargets, optimalist, aperatlist, seeing, \
+                frame_time, frame_timerr, count):
+
+    # Loop will write out files with the following outputformat:
+    # seq. number, frame_time, frame_timerr, flux, flux error, seeing
+    for i in range(0,len(alltargets)):
+        # First write the optimal photometry data
+        with open(alltargets[i][1]+".opt", "a") as outfile:
+            outfile.write(str(count)+" "+str(frame_time)+\
+            " "+ str(frame_timerr)+" "+str(optimalist[i][0])+\
+            " "+ str(optimalist[i][1])+" "+str(seeing)+" "+"\n")
+        # Now write the aperture photometry data
+        with open(alltargets[i][1]+".dat", "a") as outfile:
+            outfile.write(str(count)+" "+str(frame_time)+\
+            " "+ str(frame_timerr)+" "+str(aperatlist[i][0])+\
+            " "+ str(aperatlist[i][1])+" "+str(seeing)+" "+"\n")
+
+    ### Files are always appended. This might be a problem when running a
+    ### new round of rtphos of the same data. Perhaps we should make rtphos
+    ### to first check is *.opt and *.dat files exist in the output directory
+    ### delete them and then proceed with the reduction(?)
+    ### Should we place the output files in a new directory (e.g. output)?
+
+    return
+
 
 #############################################################################
-
 class seekfits():
 # requires zach_offsets, write_optphot_init
     
@@ -503,11 +528,15 @@ class seekfits():
                         optimalist  = optimaldict.values()
                         aperatlist  = aperatdict.values()
 
+                        # File output
+                        alltargets = targets + comparisons
+                        outputfiles(alltargets, optimalist, aperatlist, seeing, \
+                                    frame_time, frame_timerr, count)
+
                         # Screen output
                         print "============================================"
                         print "FILENAME ", filename
                         print "FRAME_TIME ", frame_time, frame_timerr, count, len(optimalist)
-                        alltargets =targets + comparisons
                         #print "Optimal Photometry Results:"
                         for i in range(0,len(optimalist)):
                             print alltargets[i][1], optimalist[i][0], optimalist[i][1], seeing
@@ -615,7 +644,7 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     call(['ln', '-s', rtphosdir+'/Timing/leap.dat', 'leapdat'])
     os.chdir(data_dir) # Move back to the data directory
 
-    # Convert verbose switch value to a string switch
+    # Convert verbose switch value to a string
     if verbose==1:
        verbose='Y'
     else:
