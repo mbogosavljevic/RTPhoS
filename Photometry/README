@@ -26,7 +26,7 @@ gfortran -c opt_extr.f90 marq.f90
 (you will get a messge that Fatal Error: Can't open module file 'marq.mod'. Just run it again)
 gfortran -c opt_extr.f90 marq.f90
 then:
-gfortran -o optimal optimal.f90 marq.o opt_extr.o subs.o -L /usr/local/lib -lcfitsio
+gfortran -o optimal optimal.f90 marq.o opt_extr.o -L /usr/local/lib -lcfitsio
 
 Required improvements:
 1. Include flagging of bad pixels, bad stars, bad sky etc. This feature was removed from
