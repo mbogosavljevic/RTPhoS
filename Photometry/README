@@ -21,6 +21,13 @@ Alternatively (I use g95 but any Fortran compiler will do):
 g95 -c opt_extr.f90 marq.f90
 g95 -o optimal optimal.f90 marq.o opt_extr.o -L/<Local Path>/cfitsio -lcfitsio
 
+Example:
+gfortran -c opt_extr.f90 marq.f90
+(you will get a messge that Fatal Error: Can't open module file 'marq.mod'. Just run it again)
+gfortran -c opt_extr.f90 marq.f90
+then:
+gfortran -o optimal optimal.f90 marq.o opt_extr.o subs.o -L /usr/local/lib -lcfitsio
+
 Required improvements:
 1. Include flagging of bad pixels, bad stars, bad sky etc. This feature was removed from
    The original codein order to make the code independent of the ARK software package. 
