@@ -384,7 +384,7 @@ def outputfiles(alltargets, optimalist, aperatlist, seeing, \
     for i in range(0,len(alltargets)):
         # First write the optimal photometry data
         with open(alltargets[i][1]+".opt", "a") as outfile:
-            outdata = (count, pdatetime, frame_time, frame_timerr, optimalist[i][0], \
+            outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, optimalist[i][0], \
                        optimalist[i][1], float(seeing), filename)
             fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s \n'
             outfile.write(fmtstring % outdata)
@@ -393,7 +393,7 @@ def outputfiles(alltargets, optimalist, aperatlist, seeing, \
 #            str(optimalist[i][1])+" "+str(seeing)+" "+filename+" \n")
         # Now write the aperture photometry data
         with open(alltargets[i][1]+".dat", "a") as outfile:
-            outdata = (count, pdatetime, frame_time, frame_timerr, aperatlist[i][0], \
+            outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, aperatlist[i][0], \
                        aperatlist[i][1], float(seeing), filename)
             fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s \n'
             outfile.write(fmtstring % outdata)
@@ -454,7 +454,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":  
                            mdatetime = checklist['DATE']+" "+checklist['TIME']
                            pdatetime = checklist['DATE']+"|"+checklist['TIME']
-                           print ("HERE",mdatetime)
+                           #print ("HERE",mdatetime)
                            # this is needed to get plot-able UTC time
                            sdatetime = datetime.strptime(mdatetime,  "%Y-%m-%d %H:%M:%S")                        
                            mdatetime = Time(mdatetime, format='iso', scale='utc')
@@ -508,7 +508,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        # Screen output
                        print "============================================"
                        print "FILENAME ", filename
-                       print "FRAME_TIME ", frame_time, frame_timerr, count, len(optimalist)
+                       print "FRAME_TIME ", frame_time, frame_timerr
                        #print "Optimal Photometry Results:"
                        for i in range(0,len(optimalist)):
                            print alltargets[i][1], optimalist[i][0], optimalist[i][1], seeing

@@ -346,7 +346,7 @@ def checksize(filelistin, dsize, calltxt):
 #        for i in range(biasvers):
 #            filesout.append('masterbias_%i.fits' %(i+1)) 
 #    else:
-#        filesout.append('masterbias.fits')
+#        filesout.append(rtdefs['mbias'])
 
     # Construct the COMMENT header text to be inserted to the output files.
 #    biastxt = "Bias frame created by RTPhoS on "
@@ -432,7 +432,7 @@ def makebias(dsize, dirs, rtdefs):
     # Construct a COMMENT keyword and add it to the output image header.
     # First, get the header of the first file to use as a header for the output file.
     # Output filename and header text construct.
-    filenameout = 'masterbias.fits'
+    filenameout = rtdefs['mbias']
     hdr_in = pyfits.getheader(goodbiasfiles[0])
     hdr_out = hdr_in.copy(strip=True)
 
@@ -616,7 +616,6 @@ def makedark (dsize, exposure, dirs, rtdefs):
 
     print "Dark Median: ", np.median(masterdark)
     # Output the masterdark frame.
-    # Filename hardwired as masterdark.fits
     writefits(masterdark, hdr_out, dirs['reduced']+outfilename)
     darkcheck = True
     dark = (darkcheck, masterdark)
@@ -845,7 +844,6 @@ def makeflat(dsize, obsfilter, dirs, rtdefs):
     hdr_out['COMMENT'] = (flattxt)          
 
     # Output the masterflat frame.
-    # Filename hardwired as masterflat.fits
     writefits(masterflat, hdr_out, dirs['reduced']+outfilename)
     flatcheck = True
     flat = (flatcheck, masterflat)
@@ -950,8 +948,8 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
     if not biascor:
        print "Frame is not Bias calibrated"
        print "Proceeding with removing the bias..."
-       if os.path.isfile(dirs['reduced']+'masterbias.fits'):   
-          masterbias = pyfits.getdata(dirs['reduced']+'masterbias.fits')
+       if os.path.isfile(dirs['reduced']+rtdefs['mbias']):   
+          masterbias = pyfits.getdata(dirs['reduced']+rtdefs['mbias'])
           if np.shape(masterbias) != dsize:
              biascheck = False
              print "WARNING: Masterbias frame is of different size than data frames!"
@@ -974,8 +972,8 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
     if not darkcor:
        print "Frame is not Dark calibrated"
        print "Proceeding with removing the dark..."
-       if os.path.isfile(dirs['reduced']+'masterdark.fits'):   
-          masterdark = pyfits.getdata(dirs['reduced']+'masterdark.fits')
+       if os.path.isfile(dirs['reduced']+rtdefs['mdark']):   
+          masterdark = pyfits.getdata(dirs['reduced']+rtdefs['mdark'])
           if np.shape(masterdark) != dsize:
              darkcheck = False
              print "WARNING: Masterdark frame is of different size than data frames!"
@@ -998,8 +996,8 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
     if not flatcor:
        print "Frame is not flat fielded!"
        print "Proceeding with flat fielding..."
-       if os.path.isfile(dirs['reduced']+'masterflat.fits'):   
-          masterflat = pyfits.getdata(dirs['reduced']+'masterflat.fits')
+       if os.path.isfile(dirs['reduced']+rtdefs['mflat']):   
+          masterflat = pyfits.getdata(dirs['reduced']+rtdefs['mflat'])
           if np.shape(masterflat) != dsize:
              flatcheck = False
              print "WARNING: Masterflat frame is of different size than data frames!"
