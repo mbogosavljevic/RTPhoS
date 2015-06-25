@@ -550,7 +550,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        plt.imshow(comp_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
                        plt.title(comparisons[0][1]+"\n"+"\n"+str(int(compx))+","+str(int(compy)))
 
-                       plt.pause(0.01) # Small time delay to allow for matplotlib to plot the graphs
+                       plt.pause(1) # Small time delay to allow for matplotlib to plot the graphs
 
                        # Text output
                        print "============================================"
