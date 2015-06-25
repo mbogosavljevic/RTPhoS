@@ -31,7 +31,8 @@ import f2n
 import sys
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
-
+from matplotlib import rcParams
+rcParams.update({'figure.autolayout': True})
 
 # NOTE: where else can we put this?
 #sys.path.append("~/pythoncode/f2n/f2n") # The directory that contains f2n.py and f2n_fonts !
@@ -346,6 +347,9 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
     input_txt.append(filename+psfpos+starpos+verbose)
     input_txt.append(badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu)
 
+    #print filename+psfpos+starpos+verbose
+    #print badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu
+
     os.chdir(dirs['reduced'])  # Move to the reduced image directory
     p = Popen(["optimal"], stdin=PIPE, stdout=PIPE)
     data_out = p.communicate(input_txt[0]+"\n"
@@ -422,8 +426,15 @@ def outputfiles(alltargets, optimalist, aperatlist, seeing, \
 def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
 # requires zach_offsets, write_optphot_init
     
-    xdata=[]
-    ydata=[]
+    # Reduced data lists
+    xdata=[]         # X-axis data (time)
+    yseeing=[]       # Seeing data
+    yrawtarget=[]    # Raw target counts
+    yrawtargeterr=[] # Raw target error bars
+    yrawcomp=[]      # Raw comparison counts
+    yrawcomperr=[]   # Raw comparison error bars
+    ydflux=[]        # Differential photometry counts
+    ydfluxerr=[]     # Differential photometry error bars
 
     before = sorted(os.listdir(dirs['data']))
     # a switch to first check if files found on startup
@@ -520,8 +531,23 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        outputfiles(alltargets, optimalist, aperatlist, seeing, \
                                    frame_time, frame_timerr, pdatetime, sfilename, count)
 
+                       # Fill the data lists
                        xdata.append(count)
-                       ydata.append(seeing)
+                       yseeing.append(seeing)
+                       yrawtarget.append(float(optimalist[1][0]))
+                       yrawtargeterr.append(float(optimalist[1][1]))
+                       yrawcomp.append(float(optimalist[2][0]))
+                       yrawcomperr.append(float(optimalist[2][1]))
+                      
+
+#    xdata=[]         # X-axis data (time)
+#    yseeing=[]       # Seeing data
+#    yrawtarget=[]    # Raw target counts
+#    yrawtargeterr=[] # Raw target error bars
+#    yrawcomp=[]      # Raw comparison counts
+#    yrawcomperr=[]   # Raw comparison error bars
+#    ydflux[]         # Differential photometry counts
+#    ydfluxerr=[]     # Differential photometry error bars
 
                        # Graphics output
                        dataplt[dataplt == -inf] = 0.0             # Remove inf values
@@ -543,25 +569,55 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        comp_crop[comp_crop==0] = medianintens     # Remove zero values
                        comp_crop = np.log(comp_crop)              # Use for log scale plotting
 
-                       # The actual plot commands for the target...
+                       # Target thumbnail
+                       plt.figure(figsize=(8,8))
                        plt.subplot(2,2,1)
                        plt.plot([50,50],[0,100],'r:')             # Plot cross-hairs
                        plt.plot([0,100],[50,50],'r:')             #      -""-
                        plt.imshow(target_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
                        plt.title(targets[0][1]+"\n"+"\n"+str(int(targetx))+","+str(int(targety)))
-                       # ...and for the fist comparison star (C-1)
+                       plt.tight_layout()
+                       # Comparison thumbnail
                        plt.subplot(2,2,2)
                        plt.plot([50,50],[0,100],'r:')             # Plot cross-hairs
                        plt.plot([0,100],[50,50],'r:')             #      -""-
                        plt.imshow(comp_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
                        plt.title(comparisons[0][1]+"\n"+"\n"+str(int(compx))+","+str(int(compy)))
-                       # ...and for the seeing
-                       plt.subplot(2,1,2)
-                       plt.scatter(xdata,ydata)
-                       plt.title('Seeing')
+                       plt.tight_layout()
+
+                       plt.figure(figsize=(10,10))
+                       # Target Raw counts
+                       plt.subplot(4,1,1)
+                       plt.errorbar(xdata, yrawtarget, yerr=yrawtargeterr, fmt='o')
+                       #plt.title(targets[0][1]+' flux')
+                       plt.xticks([])
+                       plt.grid(True)
+                       plt.ylabel('Raw Counts')
+                       plt.tight_layout()
+                       # Comparison Raw counts
+                       plt.subplot(4,1,2)
+                       plt.errorbar(xdata, yrawcomp, yerr=yrawcomperr, fmt='o')
+                       #plt.title(targets[0][1]+' flux')
+                       plt.xticks([])
+                       plt.grid(True)
+                       plt.ylabel('Raw Counts')
+                       plt.tight_layout()
+                       # Target Relative Flux
+                       plt.subplot(4,1,3)
+#                       plt.errorbar(xdata, ydata, yerr=yerror, fmt='o')
+                       #plt.title(targets[0][1]+' flux')
+                       plt.xticks([])
+                       plt.grid(True)
+                       plt.ylabel('Relative Flux')
+                       plt.tight_layout()
+                       # Seeing
+                       plt.subplot(4,1,4)
+                       plt.scatter(xdata,yseeing)
+                       plt.grid(True)
                        plt.xlabel('Frame Sequence')
                        plt.ylabel('Pixels')
-
+                       plt.tight_layout()
+ 
                        plt.pause(1) # Small time delay to allow for matplotlib to plot the graphs
 
                        # Text output
