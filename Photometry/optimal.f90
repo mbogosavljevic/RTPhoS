@@ -130,8 +130,6 @@ program optimal_phot
 
   logical :: optimal
 
-! ------------------------------------------------------------------------------
-
 ! ***************************************************************
 ! Actual program starts here.
 ! ***************************************************************
@@ -602,7 +600,7 @@ program optimal_phot
   if (optimal) then
      do i=1, nstar
         do j=1, ntimes
-           print*, starnames(i), optres(i,1,j), optres(i,2,j), seeing(j) 
+           print*, starnames(i), optres(i,1,j), optres(i,2,j), seeing(j), newxypos(i,1,j), newxypos(i,2,j) 
         end do   
      end do
   end if
@@ -611,7 +609,7 @@ program optimal_phot
   if (aperature) then
      do i=1, nstar
         do j=1, ntimes
-           print*, starnames(i), apres(i,1,j), apres(i,2,j), seeing(j) 
+           print*, starnames(i), apres(i,1,j), apres(i,2,j), seeing(j), newxypos(i,1,j), newxypos(i,2,j) 
         end do   
      end do
   end if

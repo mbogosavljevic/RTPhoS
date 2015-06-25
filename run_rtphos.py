@@ -21,6 +21,7 @@ from   astropy.time import Time
 from   datetime import datetime
 import pyds9
 import numpy as np
+from numpy import inf
 import os, time
 import ccdcalib
 from   scipy.optimize import curve_fit
@@ -28,6 +29,9 @@ from   scipy import signal, ndimage
 from   subprocess import call, Popen, PIPE
 import f2n
 import sys
+import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
+
 
 # NOTE: where else can we put this?
 #sys.path.append("~/pythoncode/f2n/f2n") # The directory that contains f2n.py and f2n_fonts !
@@ -35,6 +39,7 @@ import sys
 ##############################################################################
 def dict_of_floats(list_of_strings, num_items):
     dict_of_floats={}
+    xypos={}
     
     for i in range(num_items):
         for j in range(num_items):
@@ -44,8 +49,9 @@ def dict_of_floats(list_of_strings, num_items):
             #print ("Dummy", dummy)
             dict_of_floats[j]=dummy[1:3]
             seeing = dummy[3]
+            xypos[j] = dummy[4:6]
                         
-    result = (dict_of_floats, seeing)
+    result = (dict_of_floats, seeing, xypos)
     return (result)
 
 ##############################################################################
@@ -357,7 +363,7 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
     optimal_data = results[0:total_stars]
     aperture_data = results[total_stars:total_records]
 
-# Debug
+    # Debug
     #print ("Optimal data", optimal_data)
     #print ("Aperture data", aperture_data)
 
@@ -365,12 +371,14 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
     optimal_res=dict_of_floats(optimal_data, total_stars)
     optimal_stars=optimal_res[0]
     seeing = optimal_res[1]
+    xypos = optimal_res[2]
     
     aperture_res=dict_of_floats(aperture_data, total_stars)
     aperture_stars=aperture_res[0]
     seeing = aperture_res[1]
+    xypos = aperture_res[2]
 
-    photometry_result = (optimal_stars, aperture_stars, seeing)
+    photometry_result = (optimal_stars, aperture_stars, seeing, xypos)
 
     os.chdir(dirs['data'])  # Move back to the raw data directory
     return photometry_result
@@ -436,12 +444,15 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                for filein in added:                  
                    # check if it is a fits file
                    filename = dirs['data']+'/'+filein
-                     
+                   
                    # WARNING - hardcoded the '.fits' or '.fit' extensions
                    if (filename.endswith('.fits') or filename.endswith('.fit')):
                        # Can load both data and header with this trick
                        data2, hdr = pyfits.getdata(filename, header=True) 
                        print("I read image: "+filename)
+
+                       # Data array used for plotting the current image. 
+                       dataplt = data2  
 
                        # First check that all the required header keywords are in
                        # the FITS file and then get the time stamp for this frame.
@@ -495,9 +506,10 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        frame_photometry = run_photometry(rtdefs, dirs, calib_fname, psf_fwhm)
   
                        # Deconstruct the photometry results from optimal.f90
-                       (optimaldict, aperatdict, seeing) = frame_photometry
+                       (optimaldict, aperatdict, seeing, xypos) = frame_photometry
                        optimalist  = optimaldict.values()
                        aperatlist  = aperatdict.values()
+                       xyposlist   = xypos.values()
 
                        # File output
                        junk, sfilename = os.path.split(filename)
@@ -505,17 +517,54 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        outputfiles(alltargets, optimalist, aperatlist, seeing, \
                                    frame_time, frame_timerr, pdatetime, sfilename, count)
 
-                       # Screen output
+                       # Graphics output
+                       dataplt[dataplt == -inf] = 0.0             # Remove inf values
+                       # Crop a 100px square around the target
+                       targetx = float(xyposlist[0][0])
+                       targety = float(xyposlist[0][1])
+                       target_crop = dataplt[targety-50:targety+50,targetx-50:targetx+50]
+                       medianintens = np.median(target_crop)
+                       target_crop[target_crop==0] = medianintens # Remove zero values
+                       target_crop = np.log(target_crop)          # Use for log scale plotting
+                       cropmin = np.amin(target_crop)
+                       cropmax = np.amax(target_crop)
+                       # Attempt for a reasonable intensity scale 
+                       maxintens = ((cropmax-cropmin)/2.0)+cropmin
+                       # Crop a 100px square around the first comparison star
+                       compx = float(xyposlist[1][0])
+                       compy = float(xyposlist[1][1])
+                       comp_crop = dataplt[compy-50:compy+50,compx-50:compx+50]
+                       comp_crop[comp_crop==0] = medianintens     # Remove zero values
+                       comp_crop = np.log(comp_crop)              # Use for log scale plotting
+
+                       # The actual plot commands for the target...
+                       plt.subplot(1,2,1)
+                       plt.plot([50,50],[0,100],'r:')             # Plot cross-hairs
+                       plt.plot([0,100],[50,50],'r:')             #      -""-
+                       plt.imshow(target_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
+                       plt.title(targets[0][1]+"\n"+"\n"+str(int(targetx))+","+str(int(targety)))
+                       # ...and for the fist comparison star (C-1)
+                       plt.subplot(1,2,2)
+                       plt.plot([50,50],[0,100],'r:')             # Plot cross-hairs
+                       plt.plot([0,100],[50,50],'r:')             #      -""-
+                       plt.imshow(comp_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
+                       plt.title(comparisons[0][1]+"\n"+"\n"+str(int(compx))+","+str(int(compy)))
+
+                       plt.pause(0.01) # Small time delay to allow for matplotlib to plot the graphs
+
+                       # Text output
                        print "============================================"
                        print "FILENAME ", filename
                        print "FRAME_TIME ", frame_time, frame_timerr
                        #print "Optimal Photometry Results:"
                        for i in range(0,len(optimalist)):
-                           print alltargets[i][1], optimalist[i][0], optimalist[i][1], seeing
+                           print alltargets[i][1], optimalist[i][0], optimalist[i][1], \
+                                 seeing, xyposlist[i][0], xyposlist[i][1]
                        print "------------------------------"
                        #print "Aperature Photometry Results:"
                        for i in range(0,len(aperatlist)):
-                           print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], seeing
+                           print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], \
+                                 seeing, xyposlist[i][0], xyposlist[i][1]
                        print
 
            before = after
@@ -690,6 +739,7 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
 
     # Do the photometry
     tsleep = 3                    # Arbitrary time delay
+    plt.ion()
     seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
     
 if  __name__ == "__main__":
