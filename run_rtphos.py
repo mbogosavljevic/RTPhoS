@@ -22,7 +22,7 @@ from   datetime import datetime
 import pyds9
 import numpy as np
 from numpy import inf
-import os, time
+import os, time, math
 import ccdcalib
 from   scipy.optimize import curve_fit
 from   scipy import signal, ndimage
@@ -33,6 +33,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib import rcParams
 rcParams.update({'figure.autolayout': True})
+import matplotlib.patches as mpatches
 
 # NOTE: where else can we put this?
 #sys.path.append("~/pythoncode/f2n/f2n") # The directory that contains f2n.py and f2n_fonts !
@@ -423,7 +424,7 @@ def outputfiles(alltargets, optimalist, aperatlist, seeing, \
 
 
 #############################################################################
-def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
+def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1, ax2, ax3, ax4, ax5):
 # requires zach_offsets, write_optphot_init
     
     # Reduced data lists
@@ -497,8 +498,8 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                            frame_timerr = midexp
 
                        # Strip JD and reduced it to 2 significant figures.
-                       # stripjd = int(float(frame_time)/100.0)*100.0
-                       # twosig_time =  float(frame_time) - stripjd
+                       stripjd = int(float(frame_time)/100.0)*100.0
+                       twosig_time =  float(frame_time) - stripjd
 
                        # Now initiate the calibration, offsets and photometry.
                        # ccdcalib will either calibrate the image and place the
@@ -521,9 +522,9 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
   
                        # Deconstruct the photometry results from optimal.f90
                        (optimaldict, aperatdict, seeing, xypos) = frame_photometry
-                       optimalist  = optimaldict.values()
-                       aperatlist  = aperatdict.values()
-                       xyposlist   = xypos.values()
+                       optimalist = optimaldict.values()
+                       aperatlist = aperatdict.values()
+                       xyposlist  = xypos.values()
 
                        # File output
                        junk, sfilename = os.path.split(filename)
@@ -532,24 +533,24 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                                    frame_time, frame_timerr, pdatetime, sfilename, count)
 
                        # Fill the data lists
-                       xdata.append(count)
+                       xdata.append(twosig_time)
                        yseeing.append(seeing)
                        yrawtarget.append(float(optimalist[1][0]))
                        yrawtargeterr.append(float(optimalist[1][1]))
                        yrawcomp.append(float(optimalist[2][0]))
                        yrawcomperr.append(float(optimalist[2][1]))
-                      
+                       # Do the differential photometry calculations
+                       tcounts    = float(optimalist[1][0])
+                       terror     = float(optimalist[1][1])
+                       ccounts    = float(optimalist[2][0])
+                       cerror     = float(optimalist[2][1])
+                       ydfluxs    = (tcounts/ccounts)
+                       ydfluxerrs = ydfluxs*math.sqrt( ((terror/tcounts)**2.0) + \
+                                                     ((cerror/ccounts)**2.0) )
+                       ydflux.append(ydfluxs)                       
+                       ydfluxerr.append(ydfluxerrs)
 
-#    xdata=[]         # X-axis data (time)
-#    yseeing=[]       # Seeing data
-#    yrawtarget=[]    # Raw target counts
-#    yrawtargeterr=[] # Raw target error bars
-#    yrawcomp=[]      # Raw comparison counts
-#    yrawcomperr=[]   # Raw comparison error bars
-#    ydflux[]         # Differential photometry counts
-#    ydfluxerr=[]     # Differential photometry error bars
-
-                       # Graphics output
+                       # Begin graphics output calculations
                        dataplt[dataplt == -inf] = 0.0             # Remove inf values
                        # Crop a 100px square around the target
                        targetx = float(xyposlist[0][0])
@@ -570,54 +571,59 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        comp_crop = np.log(comp_crop)              # Use for log scale plotting
 
                        # Target thumbnail
-                       plt.figure(figsize=(8,8))
-                       plt.subplot(2,2,1)
-                       plt.plot([50,50],[0,100],'r:')             # Plot cross-hairs
-                       plt.plot([0,100],[50,50],'r:')             #      -""-
-                       plt.imshow(target_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
-                       plt.title(targets[0][1]+"\n"+"\n"+str(int(targetx))+","+str(int(targety)))
-                       plt.tight_layout()
-                       # Comparison thumbnail
-                       plt.subplot(2,2,2)
-                       plt.plot([50,50],[0,100],'r:')             # Plot cross-hairs
-                       plt.plot([0,100],[50,50],'r:')             #      -""-
-                       plt.imshow(comp_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
-                       plt.title(comparisons[0][1]+"\n"+"\n"+str(int(compx))+","+str(int(compy)))
-                       plt.tight_layout()
+                       ax1.plot([50,50],[0,100],'r:')             # Plot cross-hairs
+                       ax1.plot([0,100],[50,50],'r:')             #      -""-
+                       ax1.imshow(target_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
+                       ax1.text(1, 5, targets[0][1], color='yellow', fontsize=12)
+                       #ax1.text(100, 5, "Current frame: "+filein, color='yellow', fontsize=12)
+                       #ax1.text(100, 25,"Frames processed: "+str(count), color='yellow', fontsize=12)
+                       ax1.set_xlabel("Physical X: "+xyposlist[0][0])
+                       ax1.set_ylabel("Physical Y: "+xyposlist[0][1])
+                       ax1.set_xticklabels([])
+                       ax1.set_yticklabels([])
 
-                       plt.figure(figsize=(10,10))
+                       # Comparison thumbnail
+                       ax2.plot([50,50],[0,100],'r:')             # Plot cross-hairs
+                       ax2.plot([0,100],[50,50],'r:')             #      -""-
+                       ax2.imshow(comp_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
+                       ax2.text(1, 5, comparisons[0][1], color='yellow', fontsize=12)
+                       ax2.set_xlabel("Physical X: "+xyposlist[0][0])
+                       ax2.set_ylabel("Physical Y: "+xyposlist[0][1])
+                       ax2.set_xticklabels([])
+                       ax2.set_yticklabels([])
+
                        # Target Raw counts
-                       plt.subplot(4,1,1)
-                       plt.errorbar(xdata, yrawtarget, yerr=yrawtargeterr, fmt='o')
-                       #plt.title(targets[0][1]+' flux')
-                       plt.xticks([])
-                       plt.grid(True)
-                       plt.ylabel('Raw Counts')
-                       plt.tight_layout()
-                       # Comparison Raw counts
-                       plt.subplot(4,1,2)
-                       plt.errorbar(xdata, yrawcomp, yerr=yrawcomperr, fmt='o')
-                       #plt.title(targets[0][1]+' flux')
-                       plt.xticks([])
-                       plt.grid(True)
-                       plt.ylabel('Raw Counts')
-                       plt.tight_layout()
+                       ax3.errorbar(xdata, yrawtarget, yerr=yrawtargeterr, label='Test', fmt='go')
+                       ax3.errorbar(xdata, yrawcomp,   yerr=yrawcomperr, fmt='ro')                      
+                       green = mpatches.Patch(color='green', label=targets[0][1])
+                       red = mpatches.Patch(color='red', label=comparisons[0][1])
+                       ax3.legend(handles=[green, red])                       
+                       ax3.grid(True)
+                       ax3.set_ylabel('Raw Counts')
+
+#                       # Comparison Raw counts
+#                       plt.subplot(6,1,4)
+#                       plt.errorbar(xdata, yrawcomp, yerr=yrawcomperr, fmt='ro')
+#                       #plt.title(targets[0][1]+' flux')
+#                       plt.xticks([])
+#                       plt.grid(True)
+#                       plt.ylabel('Raw Counts')
+#                       plt.tight_layout()
                        # Target Relative Flux
-                       plt.subplot(4,1,3)
-#                       plt.errorbar(xdata, ydata, yerr=yerror, fmt='o')
-                       #plt.title(targets[0][1]+' flux')
-                       plt.xticks([])
-                       plt.grid(True)
-                       plt.ylabel('Relative Flux')
-                       plt.tight_layout()
-                       # Seeing
-                       plt.subplot(4,1,4)
-                       plt.scatter(xdata,yseeing)
-                       plt.grid(True)
-                       plt.xlabel('Frame Sequence')
-                       plt.ylabel('Pixels')
-                       plt.tight_layout()
- 
+                       ax4.errorbar(xdata, ydflux, yerr=ydfluxerr, fmt='bo')
+                       blue = mpatches.Patch(color='blue', label=targets[0][1])
+                       ax4.legend(handles=[blue])                       
+                       ax4.grid(True)
+                       ax4.set_ylabel('Relative Flux')
+
+                       # Seeing plot
+                       ax5.scatter(xdata,yseeing)
+                       blue = mpatches.Patch(color='blue', label='Seeing')
+                       ax5.legend(handles=[blue])                       
+                       ax5.grid(True)
+                       ax5.set_xlabel('Time JD+ '+str(stripjd))
+                       ax5.set_ylabel('Pixels')
+
                        plt.pause(1) # Small time delay to allow for matplotlib to plot the graphs
 
                        # Text output
@@ -808,7 +814,19 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     # Do the photometry
     tsleep = 3                    # Arbitrary time delay
     plt.ion()
-    seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
+    plt.figure(figsize=(12,12))
+    ax1  = plt.subplot(421)
+    ax2  = plt.subplot(422)
+    ax3  = plt.subplot(412)
+    ax4  = plt.subplot(413, sharex=ax3)
+    ax5  = plt.subplot(414, sharex=ax3)
+
+    #fig1 = plt.figure(figsize=(8,8))
+    #ax1  = fig1.add_subplot(221)
+    #ax2  = fig1.add_subplot(222)
+    #fig2 = plt.figure(figsize=(12,12))
+
+    seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1, ax2, ax3, ax4, ax5)
     
 if  __name__ == "__main__":
 
