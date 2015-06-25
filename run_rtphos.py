@@ -422,6 +422,9 @@ def outputfiles(alltargets, optimalist, aperatlist, seeing, \
 def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
 # requires zach_offsets, write_optphot_init
     
+    xdata=[]
+    ydata=[]
+
     before = sorted(os.listdir(dirs['data']))
     # a switch to first check if files found on startup
     # need to be reduced or not (if the reduced output exists)
@@ -517,6 +520,9 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        outputfiles(alltargets, optimalist, aperatlist, seeing, \
                                    frame_time, frame_timerr, pdatetime, sfilename, count)
 
+                       xdata.append(count)
+                       ydata.append(seeing)
+
                        # Graphics output
                        dataplt[dataplt == -inf] = 0.0             # Remove inf values
                        # Crop a 100px square around the target
@@ -538,17 +544,23 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        comp_crop = np.log(comp_crop)              # Use for log scale plotting
 
                        # The actual plot commands for the target...
-                       plt.subplot(1,2,1)
+                       plt.subplot(2,2,1)
                        plt.plot([50,50],[0,100],'r:')             # Plot cross-hairs
                        plt.plot([0,100],[50,50],'r:')             #      -""-
                        plt.imshow(target_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
                        plt.title(targets[0][1]+"\n"+"\n"+str(int(targetx))+","+str(int(targety)))
                        # ...and for the fist comparison star (C-1)
-                       plt.subplot(1,2,2)
+                       plt.subplot(2,2,2)
                        plt.plot([50,50],[0,100],'r:')             # Plot cross-hairs
                        plt.plot([0,100],[50,50],'r:')             #      -""-
                        plt.imshow(comp_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
                        plt.title(comparisons[0][1]+"\n"+"\n"+str(int(compx))+","+str(int(compy)))
+                       # ...and for the seeing
+                       plt.subplot(2,1,2)
+                       plt.scatter(xdata,ydata)
+                       plt.title('Seeing')
+                       plt.xlabel('Frame Sequence')
+                       plt.ylabel('Pixels')
 
                        plt.pause(1) # Small time delay to allow for matplotlib to plot the graphs
 
