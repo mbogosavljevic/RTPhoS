@@ -535,15 +535,15 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1,
                        # Fill the data lists
                        xdata.append(twosig_time)
                        yseeing.append(seeing)
-                       yrawtarget.append(float(optimalist[1][0]))
-                       yrawtargeterr.append(float(optimalist[1][1]))
-                       yrawcomp.append(float(optimalist[2][0]))
-                       yrawcomperr.append(float(optimalist[2][1]))
+                       yrawtarget.append(float(optimalist[0][0]))
+                       yrawtargeterr.append(float(optimalist[0][1]))
+                       yrawcomp.append(float(optimalist[1][0]))
+                       yrawcomperr.append(float(optimalist[1][1]))
                        # Do the differential photometry calculations
-                       tcounts    = float(optimalist[1][0])
+                       tcounts    = float(optimalist[0][0])
                        terror     = float(optimalist[1][1])
-                       ccounts    = float(optimalist[2][0])
-                       cerror     = float(optimalist[2][1])
+                       ccounts    = float(optimalist[1][0])
+                       cerror     = float(optimalist[1][1])
                        ydfluxs    = (tcounts/ccounts)
                        ydfluxerrs = ydfluxs*math.sqrt( ((terror/tcounts)**2.0) + \
                                                      ((cerror/ccounts)**2.0) )
@@ -812,7 +812,6 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     (dataref, hdr, calib_fname) = result
 
     # Do the photometry
-    tsleep = 3                    # Arbitrary time delay
     plt.ion()
     plt.figure(figsize=(12,12))
     ax1  = plt.subplot(421)
