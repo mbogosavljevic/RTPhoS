@@ -348,8 +348,8 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
     input_txt.append(filename+psfpos+starpos+verbose)
     input_txt.append(badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu)
 
-    #print filename+psfpos+starpos+verbose
-    #print badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu
+    print filename+psfpos+starpos+verbose
+    print badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu
 
     os.chdir(dirs['reduced'])  # Move to the reduced image directory
     p = Popen(["optimal"], stdin=PIPE, stdout=PIPE)
@@ -357,11 +357,16 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
                              +input_txt[1]+"\n")[0]
  
     if verbose=='Y':
-        print " ### OPTHOT OUTPUT START ###"
+        print " ### OPTIMAL OUTPUT START ###"
         print data_out
-        print " ### OPTPHOT OUTPUT END ###"
+        print " ### OPTIMAL OUTPUT END ###"
 
+    # Find the lines corresponding to the photometry output.
+    # These are the lines after the line with 10 stars.
     results=data_out.split("\n")
+    respos = results.index(' **********')
+    del results[:respos+1]   # Trim the output list to contain only the results.
+
     total_records = len(results)-1
     total_stars=total_records/2
 
@@ -369,6 +374,7 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
     aperture_data = results[total_stars:total_records]
 
     # Debug
+    print results, len(results), respos
     #print ("Optimal data", optimal_data)
     #print ("Aperture data", aperture_data)
 

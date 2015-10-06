@@ -587,10 +587,10 @@ program optimal_phot
 
   end do frame
 
-  if (verbose) then
-     print*, "*****************************"
-     print*
-  end if
+!  if (verbose) then
+     print*, "**********"
+!     print*
+!  end if
 
 ! ***************************************************************
 ! Write the output files.
