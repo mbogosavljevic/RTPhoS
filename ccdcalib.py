@@ -851,6 +851,56 @@ def makeflat(dsize, obsfilter, dirs, rtdefs):
     os.chdir(prev_dir)
     return flat
 
+#===============================================================================
+# Create a mask of bad pixels using a flat field frame.
+#===============================================================================
+def badmask(dirs, rtdefs):
+
+# ------------------------------------------------------------------------------
+# Inputs:
+# dirs      - Type: Dictionary  - Input and output directories
+# rtdefs    - Type: Dictionary  - Default input parameters
+
+# Outputs:
+# pixelmap.fits - Type: File    - FITS file with the bad pixels detected
+
+# This routine depends on:
+# writefits  - Write the masterdark to a file.
+
+# Modules required:
+# - astropy.io.fits
+# - numpy
+# - os
+# ------------------------------------------------------------------------------
+
+    # Move to the reduced files directory and import the master flat file.
+    prev_dir = os.path.abspath(os.curdir)
+    os.chdir(dirs['reduced'])
+    flat, hdr_badpix = pyfits.getdata(rtdefs['mflat'], header=True)
+    median = np.median(flat)
+    stdev = np.std(flat)
+    print "Creating a bad pixel map...."
+    print "Median flat field value: ", median
+    print "Standard deviation value: ", stdev
+
+    # Calculate acceptable pixel value range. Set here to have a spread of 3 stdevs
+    lower = median-1.5*stdev
+    upper = median+1.5*stdev
+    print "Range of accepted pixel values: ", lower, upper
+    print
+
+    # Make the pixel mask
+    badmask = flat
+    badmask[badmask < lower] = 1
+    badmask[badmask > upper] = 1
+    badmask[badmask != 1] = 0
+
+    # Write the bad pixel mask to file
+    hdr_out = hdr_badpix.copy(strip=True)
+    writefits(badmask, hdr_out, 'badpixelmap.fits')
+
+    return
+
 
 #===============================================================================
 # ----------------------CALIBRATION INITIALIZATION------------------------------
@@ -882,9 +932,6 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
 # - datetime
 # ------------------------------------------------------------------------------
  
-    # Write the output to disk giving the prefix of 'c_' to the calibrated frame. 
-    # WARNING, HARDCODING: THIS NEEDS TO BE UPDATED TO READ IN THE DEFAULTS FILE
-
     # Strip the filename of its path
     ref_filename = os.path.basename(ref_filename)
     
@@ -1015,7 +1062,21 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
           dataref = dataref/masterflat
           flattxt = "Frame was flat fielded by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
           print "Flat fielding successfull!"
- 
+
+    # Use the masterflat frame to make a bad pixel map
+    pixelcheck = False
+    if os.path.isfile(dirs['reduced']+rtdefs['mflat']):
+       if os.path.isfile(dirs['reduced']+'pixelmap.fits'):
+          pixelcheck = True
+       else: # Create the bad pixel mask if a master flat is found and pixelmap.fits does not exist
+          badmask(dirs, rtdefs)
+          pixelcheck = True
+    # if a masterflat does not exist when this is executed that means that a 
+    # flat field frame and therefore a bad pixel mask could not be created.
+    else:
+       print "WARNING: A bad pixel mask cannot be created: missing master flat frame!"
+
+
     # Update the headers. 
     hdr_out = hdr_data.copy(strip=True)
     if biascheck: hdr_out['BIASCOR'] = (biastxt)          
@@ -1038,19 +1099,19 @@ if __name__ == "__main__":
 #  For testing    
 
    # Set up input and output directories
-   #current_dir = os.path.abspath(os.curdir)
-   #bias_dir = current_dir+"/bias/"
-   #dark_dir = current_dir+"/dark/"
-   #flat_dir = current_dir+"/flat/"
-   #data_dir = current_dir+"/data/"
-   #reduced_dir = data_dir+"/reduced/"
-   #if not os.path.exists(reduced_dir): os.makedirs(reduced_dir)
+#   current_dir = os.path.abspath(os.curdir)
+#   bias_dir = current_dir+"/bias/"
+#   dark_dir = current_dir+"/dark/"
+#   flat_dir = current_dir+"/flat/"
+#   data_dir = current_dir+"/data/"
+#   reduced_dir = data_dir+"/reduced/"
+#   if not os.path.exists(reduced_dir): os.makedirs(reduced_dir)
 
    # Make a dictionary with all the directories
-   #dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, 'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir}
+#   dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, 'flat':flat_dir, 'data':data_dir, 'reduced':reduced_dir}
 
-   #ref_filename = dirs['data']+'J1753.fits'
-   #dataref, hdr_data = pyfits.getdata(ref_filename, header=True)     
+#   ref_filename = dirs['data']+'J1753.fits'
+#   dataref, hdr_data = pyfits.getdata(ref_filename, header=True)     
 
 
    calib(rtdefs, dirs, ref_filename, dataref, hdr_data)
