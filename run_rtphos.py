@@ -508,11 +508,18 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1,
                        twosig_time =  float(frame_time) - stripjd
 
                        # Now initiate the calibration, offsets and photometry.
+                       # First map all the saturated and non linear pixels of the
+                       # current image. Then combine with the bad pixel mask to 
+                       # make a final mask of unwanted pixels and flag them accordingly. 
+                       # The flag file is a FITS file with an .flg extension. 
+                       # See ccdcalib.py for more info.
+                       ccdcalib.pixflag(rtdefs, dirs, filename, data2, hdr)
+
                        # ccdcalib will either calibrate the image and place the
                        # calibrated image file in the '/reduced/' directory or
                        # if the image did not require calibration just copy the image
                        # to the '/reduced/' directory. In either case the image will
-                       # have a 'c_' prefix to indicate that ccdcalib has seen it.
+                       # have a prefix to indicate that ccdcalib has seen it.
                        calib_data = ccdcalib.calib(rtdefs, dirs, filename, data2, hdr)
                        (data2, hdr, calib_fname) = calib_data
 
@@ -809,7 +816,7 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     print "Found PSF FWHM:",  ("%.2f" % psf_fwhm)
 
     ##### START PIPELINE #############################################
-    # This is where the pipiline looks at the data for the first time!
+    # This is where the pipeline looks at the data for the first time!
     print " DS9: Starting with file " + ref_filename
     dataref, hdr = pyfits.getdata(ref_filename, header=True)     
 

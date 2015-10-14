@@ -877,6 +877,7 @@ def badmask(dirs, rtdefs):
     prev_dir = os.path.abspath(os.curdir)
     os.chdir(dirs['reduced'])
     flat, hdr_badpix = pyfits.getdata(rtdefs['mflat'], header=True)
+    # Find the flat median and the standard deviation values
     median = np.median(flat)
     stdev = np.std(flat)
     print "Creating a bad pixel map...."
@@ -897,8 +898,65 @@ def badmask(dirs, rtdefs):
 
     # Write the bad pixel mask to file
     hdr_out = hdr_badpix.copy(strip=True)
-    writefits(badmask, hdr_out, 'badpixelmap.fits')
+    writefits(badmask, hdr_out, 'badpixelmap.fits') # Hard coded name (fix later)
 
+    del flat, hdr_badpix, badmask, hdr_out   #free some memory
+
+    os.chdir(prev_dir)
+    return
+
+
+#===============================================================================
+# Flag pixels depending on their quality. 
+#===============================================================================
+def pixflag(rtdefs, dirs, filename, image, hdr):
+
+    # Make sure we are in the 'reduced' directory
+#    prev_dir = os.path.abspath(os.curdir)
+    os.chdir(dirs['reduced'])
+
+    # Set the saturation level   HARD CODED   (Need to fix later!)
+    satlevel = 40000.0
+    # Reset various counters
+    i=k=0
+
+    # Get the size of the image array
+    sizexy = np.shape(image)
+    sizex = sizexy[0]
+    sizey = sizexy[1]
+
+    # Initialize the array that will hold the pixel flags.
+    flags = np.zeros((sizey, sizex))   
+
+    # Load bad pixel map.
+    if os.path.isfile(dirs['reduced']+'badpixelmap.fits'): # HARD CODED FILE NAME!
+       badmask = pyfits.getdata('badpixelmap.fits')
+    else:
+       badmask = np.zeros((sizey, sizex))
+
+    # Need to iterate the image array element by element in order to address 
+    # every pixel individually and flag it approprietly. 
+    for x in range(sizex):
+        for y in range(sizey):
+            if badmask[y,x]==0:
+               if image[y,x]>=satlevel:
+                  i=i+1
+                  flags[y,x]=2
+            else:
+               flags[y,x] = badmask[y,x]
+               k=k+1
+
+    print 'Saturated Pixels found: ', i
+    print 'Dead pixels found: ', k
+    print 'Total unusable pixels for this image: ', i+k
+
+    # Write the pixel flags to file
+
+    hdr_out = hdr.copy(strip=True)
+    fileout = os.path.splitext(filename) 
+    writefits(flags, hdr_out, fileout[0]+'.flg')
+
+#    os.chdir(prev_dir)
     return
 
 
