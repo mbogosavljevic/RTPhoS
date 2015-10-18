@@ -912,13 +912,14 @@ def badmask(dirs, rtdefs):
 def pixflag(rtdefs, dirs, filename, image, hdr):
 
     # Make sure we are in the 'reduced' directory
-#    prev_dir = os.path.abspath(os.curdir)
+    prev_dir = os.path.abspath(os.curdir)
     os.chdir(dirs['reduced'])
 
-    # Set the saturation level   HARD CODED   (Need to fix later!)
-    satlevel = 40000.0
+    # Set the saturation level  ************ HARD CODED   (Need to fix later!)
+    linlevel = 40000.0
+    satslevel = 65535.0
     # Reset various counters
-    i=k=0
+    bad=sats=nonlin=0
 
     # Get the size of the image array
     sizexy = np.shape(image)
@@ -929,34 +930,46 @@ def pixflag(rtdefs, dirs, filename, image, hdr):
     flags = np.zeros((sizey, sizex))   
 
     # Load bad pixel map.
-    if os.path.isfile(dirs['reduced']+'badpixelmap.fits'): # HARD CODED FILE NAME!
+    if os.path.isfile(dirs['reduced']+'badpixelmap.fits'): # ****HARD CODED FILE NAME!
        badmask = pyfits.getdata('badpixelmap.fits')
     else:
        badmask = np.zeros((sizey, sizex))
 
     # Need to iterate the image array element by element in order to address 
     # every pixel individually and flag it approprietly. 
+    # Flagging system is the following:
+    # 0 - Good pixel
+    # 1 - Dead pixel (from bad pixel mask supplied or created earlier)
+    # 2 - Saturated pixel
+    # 3 - Pixel value above linearity level
+    # 4 - Cosmic ray pixel (NOT IMPLEMENTED YET)
     for x in range(sizex):
         for y in range(sizey):
             if badmask[y,x]==0:
-               if image[y,x]>=satlevel:
-                  i=i+1
+               if image[y,x]>=linlevel and image[y,x]>=satslevel:
+                  sats=sats+1
                   flags[y,x]=2
+               elif image[y,x]>linlevel and image[y,x]<satslevel:
+                  nonlin=nonlin+1
+                  flags[y,x]=3
             else:
                flags[y,x] = badmask[y,x]
-               k=k+1
+               bad=bad+1
 
-    print 'Saturated Pixels found: ', i
-    print 'Dead pixels found: ', k
-    print 'Total unusable pixels for this image: ', i+k
+    print 'Non-linear pixels found: ', nonlin
+    print 'Saturated Pixels found: ', sats
+    print 'Dead pixels found: ', bad
+    print 'Total unusable pixels for this image: ', nonlin+sats+bad
+    print '% of total image: ',((nonlin+sats+bad)/(sizex*sizey))*100
+    print
 
     # Write the pixel flags to file
-
     hdr_out = hdr.copy(strip=True)
-    fileout = os.path.splitext(filename) 
-    writefits(flags, hdr_out, fileout[0]+'.flg')
+    path, filename = os.path.split(filename)
+    filename = os.path.splitext(filename)
+    writefits(flags, hdr_out, filename[0]+'.flg')
 
-#    os.chdir(prev_dir)
+    os.chdir(prev_dir)
     return
 
 
