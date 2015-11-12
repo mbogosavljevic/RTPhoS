@@ -42,6 +42,7 @@ import matplotlib.patches as mpatches
 def dict_of_floats(list_of_strings, num_items):
     dict_of_floats={}
     xypos={}
+    flags={}
     
     for i in range(num_items):
         for j in range(num_items):
@@ -52,8 +53,9 @@ def dict_of_floats(list_of_strings, num_items):
             dict_of_floats[j]=dummy[1:3]
             seeing = dummy[3]
             xypos[j] = dummy[4:6]
+            flags[j] = dummy[6]
                         
-    result = (dict_of_floats, seeing, xypos)
+    result = (dict_of_floats, seeing, xypos, flags)
     return (result)
 
 ##############################################################################
@@ -329,7 +331,7 @@ def write_optphot_init(rtdefs, imdir, comparisons, targets, thisoffset):
 
 
 #############################################################################
-def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
+def run_photometry(rtdefs, dirs, inputfile, origfile, psf_fwhm):
 
     filename   = inputfile+" "
     psfpos     = rtdefs['psfs']+" "    
@@ -343,12 +345,16 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
     adu        = rtdefs['gain']
     verbose    = rtdefs['verbose']
     fwhm       = str(psf_fwhm)+" "
-    
+
+    dummy = os.path.basename(origfile)
+    dummy2 = os.path.splitext(dummy)
+    flagfile = dummy2[0]+".flg "
+
     input_txt=[]
-    input_txt.append(filename+psfpos+starpos+verbose)
+    input_txt.append(filename+flagfile+psfpos+starpos+verbose)
     input_txt.append(badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu)
 
-    print filename+psfpos+starpos+verbose
+    print filename+flagfile+psfpos+starpos+verbose
     print badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu
 
     os.chdir(dirs['reduced'])  # Move to the reduced image directory
@@ -374,28 +380,30 @@ def run_photometry(rtdefs, dirs, inputfile, psf_fwhm):
     aperture_data = results[total_stars:total_records]
 
     # Debug
-    print results, len(results), respos
+    #print results, len(results), respos
     #print ("Optimal data", optimal_data)
     #print ("Aperture data", aperture_data)
 
-    # Gets a float dictionary from a list of results (optimal or aperture)
+    # Gets a dictionary from a list of results (optimal or aperture)
     optimal_res=dict_of_floats(optimal_data, total_stars)
     optimal_stars=optimal_res[0]
     seeing = optimal_res[1]
     xypos = optimal_res[2]
+    flags = optimal_res[3]
     
     aperture_res=dict_of_floats(aperture_data, total_stars)
     aperture_stars=aperture_res[0]
     seeing = aperture_res[1]
     xypos = aperture_res[2]
+    flags = aperture_res[3]
 
-    photometry_result = (optimal_stars, aperture_stars, seeing, xypos)
+    photometry_result = (optimal_stars, aperture_stars, seeing, xypos, flags)
 
     os.chdir(dirs['data'])  # Move back to the raw data directory
     return photometry_result
 
 #############################################################################
-def outputfiles(alltargets, optimalist, aperatlist, seeing, \
+def outputfiles(alltargets, optimalist, aperatlist, flaglist, seeing, \
                 frame_time, frame_timerr, pdatetime, filename, count):
 
     # Loop will write out files with the following outputformat:
@@ -404,8 +412,8 @@ def outputfiles(alltargets, optimalist, aperatlist, seeing, \
         # First write the optimal photometry data
         with open(alltargets[i][1]+".opt", "a") as outfile:
             outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, optimalist[i][0], \
-                       optimalist[i][1], float(seeing), filename)
-            fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s \n'
+                       optimalist[i][1], float(seeing), flaglist[i], filename)
+            fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s \n'
             outfile.write(fmtstring % outdata)
 #            outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
 #            " "+ str(frame_timerr)+" "+str(optimalist[i][0])+" "+\
@@ -413,8 +421,8 @@ def outputfiles(alltargets, optimalist, aperatlist, seeing, \
         # Now write the aperture photometry data
         with open(alltargets[i][1]+".dat", "a") as outfile:
             outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, aperatlist[i][0], \
-                       aperatlist[i][1], float(seeing), filename)
-            fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s \n'
+                       aperatlist[i][1], float(seeing), flaglist[i], filename)
+            fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s \n'
             outfile.write(fmtstring % outdata)
 #            outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
 #            " "+ str(frame_timerr)+" "+str(aperatlist[i][0])+" "+\
@@ -531,18 +539,19 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1,
                        t = write_optphot_init(rtdefs, dirs['reduced'], comparisons, targets, thisoffset)
                        print "Wrote Opphot init files"
                        # call optimal and do the photometry.
-                       frame_photometry = run_photometry(rtdefs, dirs, calib_fname, psf_fwhm)
+                       frame_photometry = run_photometry(rtdefs, dirs, calib_fname, filename, psf_fwhm)
   
                        # Deconstruct the photometry results from optimal.f90
-                       (optimaldict, aperatdict, seeing, xypos) = frame_photometry
+                       (optimaldict, aperatdict, seeing, xypos, flags) = frame_photometry
                        optimalist = optimaldict.values()
                        aperatlist = aperatdict.values()
                        xyposlist  = xypos.values()
+                       flaglist   = flags.values()
 
                        # File output
                        junk, sfilename = os.path.split(filename)
                        alltargets = targets + comparisons
-                       outputfiles(alltargets, optimalist, aperatlist, seeing, \
+                       outputfiles(alltargets, optimalist, aperatlist, flaglist, seeing, \
                                    frame_time, frame_timerr, pdatetime, sfilename, count)
 
                        # Fill the data lists
@@ -646,12 +655,12 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1,
                        #print "Optimal Photometry Results:"
                        for i in range(0,len(optimalist)):
                            print alltargets[i][1], optimalist[i][0], optimalist[i][1], \
-                                 seeing, xyposlist[i][0], xyposlist[i][1]
+                                 seeing, xyposlist[i][0], xyposlist[i][1], flaglist[i]
                        print "------------------------------"
                        #print "Aperature Photometry Results:"
                        for i in range(0,len(aperatlist)):
                            print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], \
-                                 seeing, xyposlist[i][0], xyposlist[i][1]
+                                 seeing, xyposlist[i][0], xyposlist[i][1], flaglist[i]
                        print
 
            before = after
