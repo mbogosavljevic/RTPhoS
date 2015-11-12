@@ -28,9 +28,8 @@ program optimal_phot
 ! g95 -o optimal optimal.f90 marq.o opt_extr.o -L/<Local Path>/cfitsio -lcfitsio
 !
 ! Required improvements:
-! 1. Include flagging of bad pixels, bad stars, bad sky etc. This feature was removed from
-!    The original code by Tim in order to make the code independent of the ARK
-!    software package. 
+!
+!
 
   use opt_extr
 
@@ -61,12 +60,14 @@ program optimal_phot
   integer :: low(2), high(2)
 
   real :: datamin, datamax, nullval
-  real, allocatable :: data(:,:) ! **** This is the image data array
+  real, allocatable :: numflag(:,:) ! **** This is the image pixel flags array
+  real, allocatable :: data(:,:)     ! **** This is the image data array
 
   logical :: anynul
 
-  character (len=50) :: filename
-  character, allocatable, dimension(:,:) :: pix_flg ! **** This is the image flag array
+  character (len=50) :: filename, flagfile
+! This is the image pixel flag array in original opphot format
+  character, allocatable, dimension(:,:) :: pix_flg 
 
 ! Variables regarding PSF stars
   integer :: npsf, ipsf, nfit
@@ -103,6 +104,7 @@ program optimal_phot
 
   character (len=15), allocatable, dimension(:) :: starnames
   character (len=50), allocatable, dimension(:) :: datafiles, timefiles
+  character (len=1), allocatable, dimension(:,:,:) :: flagres
 
 ! Varialbes used for sky estimation
   real :: bad_sky_chi, bad_sky_skw, skynos, skycnt, skyerr
@@ -135,7 +137,7 @@ program optimal_phot
 ! ***************************************************************
 
 ! Read input parameters
-  read*, filename, psfpos, starpos, verbosein
+  read*, filename, flagfile, psfpos, starpos, verbosein
   read*, bad_sky_skw, bad_sky_chi, fwhm, clip_fwhm, aprad, iopt, searchrad, adu
 
 ! J1753.fits psf.cat stars.cat N
@@ -247,11 +249,12 @@ program optimal_phot
 ! Since this is the pipeline version it runs every time for a single file.
 ! Therefore ntimes must equal 1.
   ntimes = 1
-  allocate(optres(nstar,2,ntimes))
-  allocate(apres(nstar,2,ntimes))
-  allocate(newxypos(nstar,2,ntimes))
-  allocate(newpsfpos(npsf,2,ntimes))
-  allocate(seeing(ntimes))
+  allocate(optres(nstar,2,ntimes))   !star id, flux, eflux, no of points
+  allocate(apres(nstar,2,ntimes))    !star id, flux, eflux, no of points
+  allocate(flagres(nstar,2,ntimes))  !star id, optimal flag, aperature flag, no of points
+  allocate(newxypos(nstar,2,ntimes)) !star id, xpos, ypos, no of points
+  allocate(newpsfpos(npsf,2,ntimes)) !star id, xpos, ypos, no of points
+  allocate(seeing(ntimes))           !seeing
 
 ! ***************************************************************
 ! Setup all the optimal and aperature photometry options
@@ -335,9 +338,17 @@ program optimal_phot
      print*
   end if
 
+! Check to see what kind of photometry will be performed.
+  if (.not.optimal) then
+     print*, '* Optical Photometry will not be performed'
+     flagres(:,1,:)='-'
+  end if
+  if (.not.aperature) then
+     print*, '* Aperature Photometry will not be performed'
+     flagres(:,2,:)='-'
+  end if
+
 ! If both the optimal and photometry options are negative exit the program.
-  if (.not.optimal) print*, '* Optical Photometry will not be performed'
-  if (.not.aperature) print*, '* Aperature Photometry will not be performed'
   if ((.not.optimal).and.(.not.aperature)) then
      print*, '* Nothing to do! Exiting...'
      stop
@@ -373,9 +384,11 @@ program optimal_phot
 	     low=fpix
          high=lpix
          allocate(data(1:naxes(1),1:naxes(2)))
+         allocate(numflag(1:naxes(1),1:naxes(2)))
+         allocate(pix_flg(1:naxes(1),1:naxes(2)))
          ! Read the data into the data array
          call ftgsve(unit, group, naxis, naxes, fpix, lpix, inc, nullval, data, anynul, status )
-         ! Print somethings from the FITS file to confirm that it read properly.
+!         Print somethings from the FITS file to confirm that it read properly.
 !         print*, naxis, naxes(1), naxes(2)
 !         print*, fpix(1), fpix(2)
 !         print*, lpix(1), lpix(2)
@@ -388,9 +401,48 @@ program optimal_phot
          ! The PRINTERROR subroutine is listed at the end of this file.
          if (status .gt. 0 .and. verbose) call printerror(status)
 
-!        Setup a dummy flag array - It must be properly set later  ********* 
-	     allocate(pix_flg(1:naxes(1),1:naxes(2)))
-         pix_flg="O"
+!        Now do the same and read in the file containing the numeric pixel flags.
+!        re-initilized cfitsio variables.
+         nfound=0
+         naxis=2
+         group=1
+         inc=1
+         nullval=-999
+         status=0
+         readwrite=0
+
+!        Open the flag file and read in the flags.
+         call ftgiou(unit, status)
+         call ftopen(unit, flagfile, readwrite, blocksize, status)
+         call ftgknj(unit, 'NAXIS', 1, 2, naxes, nfound, status)
+!        if there is a problem set all flags to OK.
+         if (nfound /= 2)then
+            if (verbose) print *,'Flag file cannot be read. All flags will be set to O'
+            pix_flg = 'O'
+         end if
+         ! Allocate the data array and determine the first and last pixels of the image.
+         fpix=1
+         lpix=naxes
+	     low=fpix
+         high=lpix
+!        Read in the numeric pixel flags
+         call ftgsve(unit, group, naxis, naxes, fpix, lpix, inc, nullval, numflag, anynul, status )
+         call ftclos(unit, status)
+         call ftfiou(unit, status)
+!        Check for any error, and if so print out error messages.
+         if (status .gt. 0 .and. verbose) call printerror(status)
+
+!        Print somethings from the pixel flag file to confirm that it read properly.
+!         print*, "Pixel flag at x=100, y=100: ", numflag(100,100)
+!         print*, "maximum value position: ", maxloc(numflag)
+! 	     print*, "*********************"
+
+!        Convert pixel flag numbers into opphot's scheme
+         forall (i=1:naxes(1),j=1:naxes(2),numflag(i,j)==0) pix_flg(i,j)="O"
+         forall (i=1:naxes(1),j=1:naxes(2),numflag(i,j)==1) pix_flg(i,j)="F"
+         forall (i=1:naxes(1),j=1:naxes(2),numflag(i,j)==2) pix_flg(i,j)="S"
+         forall (i=1:naxes(1),j=1:naxes(2),numflag(i,j)==3) pix_flg(i,j)="L"
+!         forall (i=1:naxes(1),j=1:naxes(2),numflag(i,j)==4) pix_flg(i,j)="C"
 
 !        Estimate the position of the PSF stars
          if (clip_fwhm > 0.0) then
@@ -403,57 +455,72 @@ program optimal_phot
             end do
 
             if (verbose) print*, "@ Starting FWHM and Clipping radius is: ", fwhm, clip_fwhm
+
 !           Fit the PSF stars
             call psf_calc(data, pix_flg, npsf, xpos0, ypos0, dpsf, &
                           adu, high, low, fwhm, shape_par, ipsf, nfit, verbose)
 
             if (ipsf == -1) then
-               if (verbose) print*, 'No good PSF star could be found within frame.'
-               deallocate(data)
-	       deallocate(pix_flg)
-               cycle frame
+               optimal = .False.
+               if (verbose) then 
+                  print*, 'WARNIG: No good PSF star could be found within frame.'
+                  print*, '        Setting optimal fluxes to zero for this frame.'
+                  print*, '        ...continuing with aperature photometry only!'
+               end if
+               flagres(:,1,fnum)='J'
+       	       optres(:,1,fnum)=0.0
+	           optres(:,2,fnum)=0.0
             end if
 	    
-            ! We now have a better estimate of fwhm, so use this instead.
-            fwhm=1.665*sqrt(shape_par(1)*shape_par(2))
-!            cliprad = clip_fwhm*1.665*sqrt(shape_par(1)*shape_par(2))  
-            cliprad = 3.0*fwhm            
+            if (optimal) then
+               ! We now have a better estimate of fwhm, so use this instead.
+               fwhm=1.665*sqrt(shape_par(1)*shape_par(2))
+               !cliprad = clip_fwhm*1.665*sqrt(shape_par(1)*shape_par(2))  
+               cliprad = 3.0*fwhm            
 
-            ! Save the estimate of the seeing to an array.
-            seeing(fnum)=sqrt(1.665*shape_par(1)*1.665*shape_par(2))
-	    if (verbose) print*, "@ New FWHM and Clipping radius is: ", fwhm, cliprad
-	    if (verbose) print*, "@ Seeing is: ", seeing(fnum)
-
-	    if (verbose) then
-               print*, 'Fitted PSF star ', int(psfstars(1,ipsf)), &
-                       ' which gave FWsHM ', 1.665*shape_par(1), 1.665*shape_par(2)
-               print*, 'Rotated at an angle of ', 57.29*shape_par(3), &
+               ! Save the estimate of the seeing to an array.
+               seeing(fnum)=sqrt(1.665*shape_par(1)*1.665*shape_par(2))
+    	       if (verbose) then
+                  print*, "@ New FWHM and Clipping radius is: ", fwhm, cliprad
+                  print*, "@ Seeing is: ", seeing(fnum)
+                  print*, 'Fitted PSF star ', int(psfstars(1,ipsf)), &
+                          ' which gave FWsHM ', 1.665*shape_par(1), 1.665*shape_par(2)
+                  print*, 'Rotated at an angle of ', 57.29*shape_par(3), &
                        ' degrees from the vertical.'
-               print*, 'Chosen using ', nfit, ' stars.'
-               print*, 'Will use a clipping radius of ', cliprad, ' pixels.'
-	    end if
+                  print*, 'Chosen using ', nfit, ' stars.'
+                  print*, 'Will use a clipping radius of ', cliprad, ' pixels.'
+	           end if
 
-            ! Now get a handle on the flux in the star to be extracted optimally.
-            if (iopt > 0) then
-               xpos = real(stars(2,iopt))
-               ypos = real(stars(3,iopt))
-               ! Call the extraction, with the normalisation explicitly set to one, and
-               ! return the peak flux in optnrm.
-               call extr(data, pix_flg, xpos, ypos, dpos(1), adu, high, low, fwhm, &
-                         cliprad, shape_par, 0.0, .false., xcomp, ycomp, optflux, opterror, &
-                         xfit, yfit, xerr, yerr, optnrm, cflag, skynos, verbose)
-               if (cflag /= 'O') then
-                  if (verbose) print*, 'Star to be optimised has flag ', cflag, &
-                                       'going to next frame.'
-                  deallocate(data)
-	          deallocate(pix_flg)
-                  cycle frame
-               end if
-               if (verbose) print*, 'Extractions will be optimised for stars with ',&
+               !Now get a handle on the flux in the star to be extracted optimally.
+               if (iopt > 0) then
+                  xpos = real(stars(2,iopt))
+                  ypos = real(stars(3,iopt))
+                  ! Call the extraction, with the normalisation explicitly set to one, and
+                  ! return the peak flux in optnrm.
+                  call extr(data, pix_flg, xpos, ypos, dpos(1), adu, high, low, fwhm, &
+                            cliprad, shape_par, 0.0, .false., xcomp, ycomp, optflux, opterror, &
+                            xfit, yfit, xerr, yerr, optnrm, cflag, skynos, verbose)
+
+                  if (cflag /= 'O') then
+                     optimal = .False.
+                     if (verbose) then 
+                        print*, 'WARNING: Star to be optimised has flag ', cflag
+                        print*, '         will set its optimal flux to zero and continue'
+                        print*, '         with aperature photometry!'
+                     end if
+                     flagres(:,1,fnum)=cflag
+       	             optres(:,1,fnum)=0.0
+	                 optres(:,2,fnum)=0.0
+                     optnrm=0.0
+                  end if
+
+                  if (verbose) print*, 'Extractions will be optimised for stars with ',&
                                      optnrm,' peak counts.'
-               optnrm=optnrm/(skynos*skynos)
-            else                            
-               optnrm=0.0
+                  optnrm=optnrm/(skynos*skynos)
+               else                            
+                  optnrm=0.0
+               end if
+
             end if
 
             if (verbose) then
@@ -461,9 +528,11 @@ program optimal_phot
                print*
             end if
 
-         else
-            ! Don't do optimal photometry, but we will need a FWHM for fitting
-            ! the star to find its position.
+         end if
+
+         ! Don't do optimal photometry, but we will need a FWHM for fitting
+         ! the star to find its position.
+         if (.not.optimal) then
             shape_par(1)=fwhm/1.665
             shape_par(2)=fwhm/1.665
             shape_par(3)=0.0
@@ -479,60 +548,65 @@ program optimal_phot
 
          each_star: do istar=1, nstar
 
-	            comp=.False.
+	        comp=.False.
 
-                    ! Calculate approximate position of star.
-                    xpos = real(stars(2,istar))
-                    ypos = real(stars(3,istar))
+            ! Calculate approximate position of star.
+            xpos = real(stars(2,istar))
+            ypos = real(stars(3,istar))
 
-                    if (optimal) then
+            if (optimal) then
 
-                   ! Call the optimal extraction routine.
-                     call extr(data, pix_flg, xpos, ypos, dpos(1), adu, & 
-                              high, low, fwhm, cliprad, shape_par, optnrm, &
-                              comp, xcomp, ycomp, optflux, opterror, &
-                              xfit, yfit, xerr, yerr, peak, cflag, skynos,verbose)
-		    if (verbose) then
-		       print*, 'New position of star',starnames(istar),':', xfit, yfit
-		       print*, '1st pass flux is: ', optflux, opterror
-		    end if
-                    ! Put the flux and its error in the output array.	    
-       	            optres(istar,1,fnum)=optflux
-	                optres(istar,2,fnum)=opterror
-
-                    ! If the star was not in the frame go to the next one
-		            ! otherwise perform a second pass this time fixing the
-                    ! position of the star.	    
-		    if (opterror<0.0) then 
-		       newxypos(istar,1,fnum)=-1.0
-		       newxypos(istar,2,fnum)=-1.0
-	           apres(istar,1,fnum)=0.0 
-		       apres(istar,2,fnum)=-1.0
-                       cycle each_star
-		    else
-                  ! *** Make the code keep a track of the star position in all frames.		    		       
-		       newxypos(istar,1,fnum)=xfit
-		       newxypos(istar,2,fnum)=yfit
+               ! Call the optimal extraction routine.
+               call extr(data, pix_flg, xpos, ypos, dpos(1), adu, & 
+                         high, low, fwhm, cliprad, shape_par, optnrm, &
+                         comp, xcomp, ycomp, optflux, opterror, &
+                         xfit, yfit, xerr, yerr, peak, cflag, skynos,verbose)
+		       if (verbose) then
+		          print*, 'New position of star',starnames(istar),':', xfit, yfit
+                  print*, 'Star is flagged as: ', cflag
+		          print*, '1st pass flux is: ', optflux, opterror
+		       end if
+               ! Put the flux and its error in the output array and flag the result.	    
        	       optres(istar,1,fnum)=optflux
 	           optres(istar,2,fnum)=opterror
-!              Do a second pass but this time with the star positions fixed.
-               xpos = xfit
-               ypos = yfit
-               posfix=-1.0    ! Do not centroid
+               flagres(istar,1,fnum)= cflag
 
-		       if (verbose) print*, 'Perfoming 2nd pass for star',starnames(istar),&
-                                            'with its position fixed to', xfit, yfit
-                       call extr(data, pix_flg, xpos, ypos, posfix, adu, & 
-                                 high, low, fwhm, cliprad, shape_par, optnrm, &
-                                 comp, xcomp, ycomp, optflux, opterror, &
-                                 xfit, yfit, xerr, yerr, peak, cflag, skynos,verbose)
-                       ! Update the flux and its error in the output array.	    
-          	       optres(istar,1,fnum)=optflux
-	               optres(istar,2,fnum)=opterror
-		    end if
+               ! If the star was not in the frame go to the next one
+		       ! otherwise perform a second pass this time fixing the
+               ! position of the star.	    
+		       if (opterror<0.0) then 
+		          newxypos(istar,1,fnum)=-1.0
+		          newxypos(istar,2,fnum)=-1.0
+	              apres(istar,1,fnum)=0.0 
+		          apres(istar,2,fnum)=-1.0
+                  cycle each_star
+		       else
+               ! *** Make the code keep a track of the star position in all frames.
+		          newxypos(istar,1,fnum)=xfit
+		          newxypos(istar,2,fnum)=yfit
+       	          optres(istar,1,fnum)=optflux
+	              optres(istar,2,fnum)=opterror
+!                 Do a second pass but this time with the star positions fixed.
+                  xpos = xfit
+                  ypos = yfit
+                  posfix=-1.0    ! Do not centroid
 
-		    if (verbose) print*, 'Opphot flux for object', &
-                                 starnames(istar),'is:',optflux,'+/-',opterror
+		          if (verbose) print*, 'Perfoming 2nd pass for star',starnames(istar),&
+                                       'with its position fixed to', xfit, yfit
+
+                  call extr(data, pix_flg, xpos, ypos, posfix, adu, & 
+                            high, low, fwhm, cliprad, shape_par, optnrm, &
+                            comp, xcomp, ycomp, optflux, opterror, &
+                            xfit, yfit, xerr, yerr, peak, cflag, skynos,verbose)
+
+                 ! Update the flag, the flux and its error in the output array.	    
+          	     optres(istar,1,fnum)=optflux
+	             optres(istar,2,fnum)=opterror
+                 flagres(istar,1,fnum)= cflag
+		       end if
+
+		       if (verbose) print*, 'Opphot flux for object', &
+                                   starnames(istar),'is:',optflux,'+/-',opterror
 		    end if
 
 		    ! In addition to Optimal photometry do aperature photometry as well
@@ -540,79 +614,86 @@ program optimal_phot
 		    ! xfit, yfit.
             if (aperature) then
 
+               sky_stuffed = .false.
+
+               ! Set the star position if not done by optimal fitting.
 			   if (.not.optimal) then
                   xfit = xpos
                   yfit = ypos
                end if
 
-                       sky_stuffed = .false.
-                       ! The box size is determined in the way described in the paper.
-                       ibox=int(sqrt(628.4*aprad*aprad+ 4.0*fwhm*fwhm))
-                       call skyfit(data, xfit, yfit, fwhm, ibox, low, high, &
-                                   pix_flg, skycnt, skyerr, skynos, cflag)
-!                       if (cflag == 'I') sky_stuffed = .true.
-!                       if (cflag == 'B') then
-!                          ap%col(1)%data = 0.0
-!                          ap%col(1)%err = 0.0
-!                       else
-                          apflux=sum_aper(data, aprad, skycnt, skyerr, skynos, &
-                                          xfit, yfit, adu, low, high, pix_flg, &
-                                          aperror, cflag)
-!                          if (sky_stuffed) cflag = 'I'
-!                          if (ap%col(1)%flg/='ON') ap%col(1)%flg='O'//cflag
-!                          if (clip_fwhm < 0.0) then   
-!                             if (ap%col(1)%flg == 'OO') then
-                        if (verbose) print*, 'Apphot flux for star', stars(1,istar), 'is', &
-                                         apflux, 'counts +/- ',aperror
-!                             else
-                                ! print*, 'Target star ', ap%id,  &
-                                !         ' was flagged with ', ap%col(1)%flg
-!                             end if
-!                          else  
-                             ! if (ap%col(1)%flg /= 'OO') &
-!                             ! print*, 'Aperture photometry was flagged with ', ap%col(1)%flg
-!                          end if
-!                       end if
-      	            apres(istar,1,fnum)=apflux
-	                apres(istar,2,fnum)=aperror
-                    end if
+               !The box size is determined in the way described in the paper.
+               ibox=int(sqrt(628.4*aprad*aprad+ 4.0*fwhm*fwhm))
+               call skyfit(data, xfit, yfit, fwhm, ibox, low, high, &
+                           pix_flg, skycnt, skyerr, skynos, cflag)
+
+               ! Flag the data accordingly.
+               ! Check to see if the sky background had problems
+               if (cflag == 'I') sky_stuffed = .true.
+
+               ! If the sky background failed set fluxes to zero. Otherwise carry
+               ! out the aperture photometry.
+               if (cflag == 'B') then
+                  apres(istar,1,fnum)=0.0
+                  apres(istar,2,fnum)=0.0
+                  flagres(istar,2,fnum)=cflag
+               else
+                  apflux=sum_aper(data, aprad, skycnt, skyerr, skynos, &
+                              xfit, yfit, adu, low, high, pix_flg, &
+                              aperror, cflag)
+
+                  if (sky_stuffed) cflag='I'
+                  flagres(istar,2,fnum)=cflag
+               end if
+
+               ! Screen output for aperture photometry results.
+               if (verbose) then
+                   print*, 'Star is flagged as: ', cflag
+                   print*, 'Apphot flux for star', stars(1,istar), 'is', &
+                            apflux, 'counts +/- ',aperror
+               end if
+
+      	       apres(istar,1,fnum)=apflux
+	           apres(istar,2,fnum)=aperror
+               flagres(istar,2,fnum)=cflag
+
+            end if
 
 		    if (verbose) print*
 
          end do each_star
- 
 
          deallocate(data)
          deallocate(pix_flg)
 
   end do frame
 
-!  if (verbose) then
-     print*, "**********"
-!     print*
-!  end if
+! The following print statement is used for run_rtphos.py to find the photometry
+! results. It has 10 "*" so if this is changed it also needs to change the 
+! appropriate line in run_rtphos.py   
+  print*, "**********"
 
 ! ***************************************************************
 ! Write the output files.
 ! ***************************************************************
 !  wformat='(I5," ",F13.4," ",F10.4," ",F7.4)'
-! Write the optimal photometry output files.
-  if (optimal) then
+! Write the optimal photometry output to screen.
+!  if (optimal) then
      do i=1, nstar
         do j=1, ntimes
-           print*, starnames(i), optres(i,1,j), optres(i,2,j), seeing(j), newxypos(i,1,j), newxypos(i,2,j) 
+           print*, starnames(i), optres(i,1,j), optres(i,2,j), seeing(j), newxypos(i,1,j), newxypos(i,2,j), flagres(i,1,j) 
         end do   
      end do
-  end if
+!  end if
 
-! Write the aperature photometry output files.
-  if (aperature) then
+! Write the aperature photometry output to screen.
+!  if (aperature) then
      do i=1, nstar
         do j=1, ntimes
-           print*, starnames(i), apres(i,1,j), apres(i,2,j), seeing(j), newxypos(i,1,j), newxypos(i,2,j) 
+           print*, starnames(i), apres(i,1,j), apres(i,2,j), seeing(j), newxypos(i,1,j), newxypos(i,2,j), flagres(i,2,j) 
         end do   
      end do
-  end if
+!  end if
 
 end program optimal_phot
 
