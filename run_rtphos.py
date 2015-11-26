@@ -29,11 +29,11 @@ from   scipy import signal, ndimage
 from   subprocess import call, Popen, PIPE
 import f2n
 import sys
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
-from matplotlib import rcParams
-rcParams.update({'figure.autolayout': True})
-import matplotlib.patches as mpatches
+#import matplotlib.pyplot as plt
+#from matplotlib.colors import LogNorm
+#from matplotlib import rcParams
+#rcParams.update({'figure.autolayout': True})
+#import matplotlib.patches as mpatches
 
 # NOTE: where else can we put this?
 #sys.path.append("~/pythoncode/f2n/f2n") # The directory that contains f2n.py and f2n_fonts !
@@ -438,7 +438,7 @@ def outputfiles(alltargets, optimalist, aperatlist, flaglist, seeing, \
 
 
 #############################################################################
-def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1, ax2, ax3, ax4, ax5):
+def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
 # requires zach_offsets, write_optphot_init
     
     # Reduced data lists
@@ -573,80 +573,24 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1,
                        ydfluxerr.append(ydfluxerrs)
 
                        # Begin graphics output calculations
-                       dataplt[dataplt == -inf] = 0.0             # Remove inf values
+                       # dataplt[dataplt == -inf] = 0.0             # Remove inf values
                        # Crop a 100px square around the target
-                       targetx = float(xyposlist[0][0])
-                       targety = float(xyposlist[0][1])
-                       target_crop = dataplt[targety-50:targety+50,targetx-50:targetx+50]
-                       medianintens = np.median(target_crop)
-                       target_crop[target_crop==0] = medianintens # Remove zero values
-                       target_crop = np.log(target_crop)          # Use for log scale plotting
-                       cropmin = np.amin(target_crop)
-                       cropmax = np.amax(target_crop)
+                       #targetx = float(xyposlist[0][0])
+                       #targety = float(xyposlist[0][1])
+                       #target_crop = dataplt[targety-50:targety+50,targetx-50:targetx+50]
+                       #medianintens = np.median(target_crop)
+                       #target_crop[target_crop==0] = medianintens # Remove zero values
+                       #target_crop = np.log(target_crop)          # Use for log scale plotting
+                       #cropmin = np.amin(target_crop)
+                       #cropmax = np.amax(target_crop)
                        # Attempt for a reasonable intensity scale 
-                       maxintens = ((cropmax-cropmin)/2.0)+cropmin
+                       #maxintens = ((cropmax-cropmin)/2.0)+cropmin
                        # Crop a 100px square around the first comparison star
-                       compx = float(xyposlist[1][0])
-                       compy = float(xyposlist[1][1])
-                       comp_crop = dataplt[compy-50:compy+50,compx-50:compx+50]
-                       comp_crop[comp_crop==0] = medianintens     # Remove zero values
-                       comp_crop = np.log(comp_crop)              # Use for log scale plotting
-
-                       # Target thumbnail
-                       ax1.plot([50,50],[0,100],'r:')             # Plot cross-hairs
-                       ax1.plot([0,100],[50,50],'r:')             #      -""-
-                       ax1.imshow(target_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
-                       ax1.text(1, 5, targets[0][1], color='yellow', fontsize=12)
-                       #ax1.text(100, 5, "Current frame: "+filein, color='yellow', fontsize=12)
-                       #ax1.text(100, 25,"Frames processed: "+str(count), color='yellow', fontsize=12)
-                       ax1.set_xlabel("Physical X: "+xyposlist[0][0])
-                       ax1.set_ylabel("Physical Y: "+xyposlist[0][1])
-                       ax1.set_xticklabels([])
-                       ax1.set_yticklabels([])
-
-                       # Comparison thumbnail
-                       ax2.plot([50,50],[0,100],'r:')             # Plot cross-hairs
-                       ax2.plot([0,100],[50,50],'r:')             #      -""-
-                       ax2.imshow(comp_crop, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
-                       ax2.text(1, 5, comparisons[0][1], color='yellow', fontsize=12)
-                       ax2.set_xlabel("Physical X: "+xyposlist[0][0])
-                       ax2.set_ylabel("Physical Y: "+xyposlist[0][1])
-                       ax2.set_xticklabels([])
-                       ax2.set_yticklabels([])
-
-                       # Target Raw counts
-                       ax3.errorbar(xdata, yrawtarget, yerr=yrawtargeterr, label='Test', fmt='go')
-                       ax3.errorbar(xdata, yrawcomp,   yerr=yrawcomperr, fmt='ro')                      
-                       green = mpatches.Patch(color='green', label=targets[0][1])
-                       red = mpatches.Patch(color='red', label=comparisons[0][1])
-                       ax3.legend(handles=[green, red])                       
-                       ax3.grid(True)
-                       ax3.set_ylabel('Raw Counts')
-
-#                       # Comparison Raw counts
-#                       plt.subplot(6,1,4)
-#                       plt.errorbar(xdata, yrawcomp, yerr=yrawcomperr, fmt='ro')
-#                       #plt.title(targets[0][1]+' flux')
-#                       plt.xticks([])
-#                       plt.grid(True)
-#                       plt.ylabel('Raw Counts')
-#                       plt.tight_layout()
-                       # Target Relative Flux
-                       ax4.errorbar(xdata, ydflux, yerr=ydfluxerr, fmt='bo')
-                       blue = mpatches.Patch(color='blue', label=targets[0][1])
-                       ax4.legend(handles=[blue])                       
-                       ax4.grid(True)
-                       ax4.set_ylabel('Relative Flux')
-
-                       # Seeing plot
-                       ax5.scatter(xdata,yseeing)
-                       blue = mpatches.Patch(color='blue', label='Seeing')
-                       ax5.legend(handles=[blue])                       
-                       ax5.grid(True)
-                       ax5.set_xlabel('Time JD+ '+str(stripjd))
-                       ax5.set_ylabel('Pixels')
-
-                       plt.pause(1) # Small time delay to allow for matplotlib to plot the graphs
+                       #compx = float(xyposlist[1][0])
+                       #compy = float(xyposlist[1][1])
+                       #comp_crop = dataplt[compy-50:compy+50,compx-50:compx+50]
+                       #comp_crop[comp_crop==0] = medianintens     # Remove zero values
+                       #comp_crop = np.log(comp_crop)              # Use for log scale plotting
 
                        # Text output
                        print "============================================"
@@ -833,22 +777,22 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     result = ccdcalib.calib(rtdefs, dirs, ref_filename, dataref, hdr)
     (dataref, hdr, calib_fname) = result
 
-    # Do the photometry
-    plt.ion()
-    plt.figure(figsize=(12,12))
-    ax1  = plt.subplot(421)
-    ax2  = plt.subplot(422)
-    ax3  = plt.subplot(412)
-    ax4  = plt.subplot(413, sharex=ax3)
-    ax5  = plt.subplot(414, sharex=ax3)
+    # Matplotlib calls - probably needs to go but keeping them for now.
+    #plt.ion()
+    #plt.figure(figsize=(12,12))
+    #ax1  = plt.subplot(421)
+    #ax2  = plt.subplot(422)
+    #ax3  = plt.subplot(412)
+    #ax4  = plt.subplot(413, sharex=ax3)
+    #ax5  = plt.subplot(414, sharex=ax3)
 
     #fig1 = plt.figure(figsize=(8,8))
     #ax1  = fig1.add_subplot(221)
     #ax2  = fig1.add_subplot(222)
     #fig2 = plt.figure(figsize=(12,12))
 
-    seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1, ax2, ax3, ax4, ax5)
-    
+    #seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1, ax2, ax3, ax4, ax5)
+    seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
 if  __name__ == "__main__":
 
     import sys
