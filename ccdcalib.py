@@ -248,6 +248,7 @@ def makefilelist(wildcard, directory="."):
     os.chdir(directory)
 
     # Search for all files in the current directory that satisfy the wildcard provided
+    wildcard = '*'+wildcard+'*'
     filelist = sorted(glob.glob(wildcard))
 
     # Discard the files without a .fit or .fits extension and count what is left.
@@ -399,7 +400,6 @@ def makebias(dsize, dirs, rtdefs):
     # Move to the bias files directory
     prev_dir = os.path.abspath(os.curdir)
     os.chdir(dirs['bias'])
-
     # Get all the available bias files into a file list.
     biasfiles = makefilelist(rtdefs['biaswc'])
     biasnum = len(biasfiles)
@@ -1011,17 +1011,21 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
     fileout = rtdefs['cprefix']+ref_filename
 
     if os.path.isfile(dirs['reduced']+fileout):
-        print "File already processed: " + dirs['reduced']+fileout
+        print "* No need for calibrating this image. File is already processed:"
+        print dirs['reduced']+fileout
+        print
         dataref, hdr_out = pyfits.getdata(dirs['reduced']+fileout, header=True) 
         result = (dataref, hdr_out, fileout)
         return result
 
     # if the reduced output does not exist, proceed
-    print "Checking image calibration..."
+    print "----------------------------------------------------------------"
+    print "* Checking image calibration..."
 
     # Check to see that this is a 2-D image if not stop.
     if hdr_data['NAXIS'] != 2:
         print "WARNING: Not a 2D image file! Proceeding to next frame..."
+        print
         return    
 
     # Get the size of the image.
@@ -1040,8 +1044,8 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
     # Set calibration flags. Default setting should be False.
     # Change to True if you want to exclude some parts of the code for testing.
     biascor = False
-    darkcor = False
-    flatcor = False
+    darkcor = True
+    flatcor = True
 
     # Look for these IRAF keywords, if they exist assume that the image has 
     # been calibrated.
@@ -1064,8 +1068,7 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
     # calibration files.
     biascheck = False
     if not biascor:
-       print "Frame is not Bias calibrated"
-       print "Proceeding with removing the bias..."
+       print "* Frame is not Bias calibrated...proceeding with removing the bias..."
        if os.path.isfile(dirs['reduced']+rtdefs['mbias']):   
           masterbias = pyfits.getdata(dirs['reduced']+rtdefs['mbias'])
           if np.shape(masterbias) != dsize:
@@ -1084,12 +1087,11 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
        if biascheck:
           dataref = dataref - masterbias
           biastxt = "Bias was subtracted by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-          print "Bias calibration successfull!"
+          print "* Bias calibration successfull!"
 
     darkcheck = False
     if not darkcor:
-       print "Frame is not Dark calibrated"
-       print "Proceeding with removing the dark..."
+       print "* Frame is not Dark calibrated...proceeding with removing the dark..."
        if os.path.isfile(dirs['reduced']+rtdefs['mdark']):   
           masterdark = pyfits.getdata(dirs['reduced']+rtdefs['mdark'])
           if np.shape(masterdark) != dsize:
@@ -1108,12 +1110,11 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
        if darkcheck:
           dataref = dataref - masterdark
           darktxt = "Dark was subtracted by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-          print "Dark calibration successfull!"
+          print "* Dark calibration successfull!"
 
     flatcheck = False
     if not flatcor:
-       print "Frame is not flat fielded!"
-       print "Proceeding with flat fielding..."
+       print "* Frame is not flat fielded...proceeding with flat fielding..."
        if os.path.isfile(dirs['reduced']+rtdefs['mflat']):   
           masterflat = pyfits.getdata(dirs['reduced']+rtdefs['mflat'])
           if np.shape(masterflat) != dsize:
@@ -1132,7 +1133,7 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
        if flatcheck:
           dataref = dataref/masterflat
           flattxt = "Frame was flat fielded by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-          print "Flat fielding successfull!"
+          print "* Flat fielding successfull!"
 
     # Use the masterflat frame to make a bad pixel map
     pixelcheck = False
@@ -1163,6 +1164,11 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
     make_png(dirs, ref_filename, dataref, 4)
 
     result = (dataref, hdr_out, fileout)
+
+    print "* Calibration completed!"
+    print "----------------------------------------------------------------"
+    print
+
     return result
 
 if __name__ == "__main__":

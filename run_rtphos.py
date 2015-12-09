@@ -66,7 +66,6 @@ def gauss(x, *p):
     return A*np.exp(-(x-xc)**2/(2.*sigma**2)) + B
 
 ##############################################################################
-
 def make_png(dirs, ref_filename, data, rbin):
 # requires f2n installed
 
@@ -82,7 +81,7 @@ def make_png(dirs, ref_filename, data, rbin):
     png_image.writetitle(frame_name, colour=(200, 200, 0))
     png_image.tonet(png_image_name)     # write the png.
 
-    
+##############################################################################
 def fwhm_from_star(image):
 # requires gauss
 #   Calculate the azimuthal radial profile.
@@ -127,7 +126,6 @@ def fwhm_from_star(image):
     return fwhm
 
 #############################################################################
-
 def get_comps_fwhm(comparisons, xpapoint):
 # requires fwhm_from_star, namesplit
 
@@ -140,7 +138,7 @@ def get_comps_fwhm(comparisons, xpapoint):
     nc = len(comparisons)
     tot_fwhm = 0.
     # comparisons is alist of tuples, in each tuple first element has x,y,r
-    print ("I will use", nc, " stars for FWHM")
+    print "I will use", nc, "star(s) to get an estimate of the FWHM:"
     for i in range(0,nc):
         xt = comparisons[i][0][0]
         yt = comparisons[i][0][1]
@@ -153,7 +151,7 @@ def get_comps_fwhm(comparisons, xpapoint):
         crop_image = image[y1:y2,x1:x2]
         fwhm = fwhm_from_star(crop_image)
         cname = (comparisons[i][1])
-        print (i+1, cname, fwhm)
+        print i+1, cname, fwhm
         tot_fwhm = tot_fwhm + fwhm
         
     mean_fwhm = tot_fwhm / nc
@@ -325,8 +323,9 @@ def write_optphot_init(rtdefs, imdir, comparisons, targets, thisoffset):
 
     text_file1.close()
     text_file2.close()
-    print ("Wrote " + str(nc) + " in " + imdir + rtdefs['psfs'])
-    print ("Wrote " + str(nc+nt) + " in "  + imdir + rtdefs['stars'])
+    print "* Wrote " + str(nc) + " star(s) in " + imdir + rtdefs['psfs']
+    print "* Wrote " + str(nc+nt) + " star(s) in "  + imdir + rtdefs['stars']
+    print
     return (1)
 
 
@@ -354,8 +353,10 @@ def run_photometry(rtdefs, dirs, inputfile, origfile, psf_fwhm):
     input_txt.append(filename+flagfile+psfpos+starpos+verbose)
     input_txt.append(badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu)
 
-    print filename+flagfile+psfpos+starpos+verbose
-    print badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu
+    print "* Initiating photometry calculations..."
+    print
+    #print filename+flagfile+psfpos+starpos+verbose
+    #print badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu
 
     os.chdir(dirs['reduced'])  # Move to the reduced image directory
     p = Popen(["optimal"], stdin=PIPE, stdout=PIPE)
@@ -478,10 +479,10 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                    if (filename.endswith('.fits') or filename.endswith('.fit')):
                        # Can load both data and header with this trick
                        data2, hdr = pyfits.getdata(filename, header=True) 
-                       print("I read image: "+filename)
+                       print "* Processing image: "+filename
 
                        # Data array used for plotting the current image. 
-                       dataplt = data2  
+                       #dataplt = data2  
 
                        # First check that all the required header keywords are in
                        # the FITS file and then get the time stamp for this frame.
@@ -533,11 +534,10 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
 
                        # find offsets from dataref
                        thisoffset = zach_offsets(dataref,data2)
-                       print "Offsets: (x,y) ", thisoffset
+                       print "* Offsets: (x,y) ", thisoffset
 
                        # create opphot init files
                        t = write_optphot_init(rtdefs, dirs['reduced'], comparisons, targets, thisoffset)
-                       print "Wrote Opphot init files"
                        # call optimal and do the photometry.
                        frame_photometry = run_photometry(rtdefs, dirs, calib_fname, filename, psf_fwhm)
   
@@ -593,15 +593,15 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        #comp_crop = np.log(comp_crop)              # Use for log scale plotting
 
                        # Text output
-                       print "============================================"
+                       print "================================================="
                        print "FILENAME ", filename
                        print "FRAME_TIME ", frame_time, frame_timerr
-                       #print "Optimal Photometry Results:"
+                       print "Optimal Photometry Results:"
                        for i in range(0,len(optimalist)):
                            print alltargets[i][1], optimalist[i][0], optimalist[i][1], \
                                  seeing, xyposlist[i][0], xyposlist[i][1], flaglist[i]
-                       print "------------------------------"
-                       #print "Aperature Photometry Results:"
+                       print "-------------------------------------------------"
+                       print "Aperature Photometry Results:"
                        for i in range(0,len(aperatlist)):
                            print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], \
                                  seeing, xyposlist[i][0], xyposlist[i][1], flaglist[i]
@@ -619,7 +619,11 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
 def run_rtphos(rtphosdir, xpapoint, pathdefs):
 # requires get_comps_fwhm, seekfits
   
-    print " ==== RTPhoS START ==== " + time.strftime('%X %x %Z')
+    print
+    print
+    print
+    print "==== RTPhoS START ==== " + time.strftime('%X %x %Z')
+    print
 
     ######## SETTING UP DIRECTORIES AND LINKS
     # create a ds9 object linked with an XPA point
@@ -633,11 +637,12 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     # Read in default values from file
     with open (pathdefs, "r") as defsfile:
         defs = defsfile.readlines()
-        print " Read defaults from: "+ pathdefs
-        print " "
+        print "* Read defaults from: "+ pathdefs
+        print
         for l in range(0,len(defs)):
-            print ("Def ",l," ",defs[l][:-2]) # without the \n
-        print " ========================================== "
+            print l, defs[l][:-1] # without the \n
+        print "========================================================= "
+        print
 
     ## If you would want to grep the defaults file and find match
     ## this would be one way to do it
@@ -672,24 +677,26 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     verbose    =   int(defs[21].split()[0])
     tsleep     =   int(defs[22].split()[0])
 
-    reduced_dir  = data_dir+"/reduced/"
-    png_dir      = data_dir+"/png/"
-
     # Current root working dir
     current_dir = os.path.abspath(os.path.join(data_dir, os.pardir))
 
+    reduced_dir  = current_dir+"/reduced/"
+    png_dir      = current_dir+"/png/"
+
     if not os.path.exists(reduced_dir): 
         os.makedirs(reduced_dir)
-        print "Created output reduced dir: " + reduced_dir
+        print "* Created output reduced dir: " + reduced_dir
     if not os.path.exists(png_dir): 
         os.makedirs(png_dir)
-        print "Created output png dir: " + png_dir
+        print "* Created output png dir: " + png_dir
     
     # Create the symbolic links required for running barycor.f90
     os.chdir(reduced_dir)
+    print "* Creating symbolic links to JPL Ephemeris and leap data files..."
     call(['ln', '-s', rtphosdir+'/Timing/jpleph.dat', 'JPLEPH'])
     call(['ln', '-s', rtphosdir+'/Timing/leap.dat', 'leapdat'])
     os.chdir(data_dir) # Move back to the data directory
+    print
 
     # Convert verbose switch value to a string
     if verbose==1:
@@ -732,17 +739,19 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     sourcelist = win.get("regions selected") 
     sources    = pyregion.parse(sourcelist)
     n = len(sources)
-    print(" In DS9 I see "+ str(n) + " sources labeled")
+    print "* Reading target and comparison star lists..."
+    print "* In DS9 I see "+ str(n) + " sources labeled:"
 
     for l in range(0,n):
        if (sources[l].comment is not None):
             sources[l].comment = sources[l].comment[sources[l].comment.find("{")+1:\
             sources[l].comment.find("}")]
-            print (l+1, sources[l].comment, sources[l].coord_list)
+            print l+1, sources[l].comment, sources[l].coord_list
        else:
-            print "You have some unlabeled sources!"
+            print "WARNING: You have some unlabeled sources!"
             print sources[l].coord_list
             print "====  Exiting. ==== "
+            print
             return
 
     # find out which are the comparison stars (they must have "C-" in name)
@@ -752,25 +761,31 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     nt = len(targets)
 
     if nc == 0:
-        print("Must have one comparison star labeled as 'C-<name>' ")
+        print "WARNING: Must have one comparison star labeled as 'C-<name>' "
         raise Exception("Must have one comparison star labeled as 'C-<name>' ")
     
     if nt == 0:
-        print("No target selected!")
+        print "WARNING: No target selected!"
         raise Exception("No target selected!")
     
-    print "Targets:"
+    print
+    print "* Target stars:"
     print targets
-    print "Comparisons:"
+    print
+    print "* Comparison stars:"
     print comparisons
+    print
 
     # get FWHM of stellar PSF using comparison stars
     psf_fwhm = get_comps_fwhm(comparisons, xpapoint)
-    print "Found PSF FWHM:",  ("%.2f" % psf_fwhm)
+    print "* Calculated a FWHM of:",  ("%.2f" % psf_fwhm),"pixels"
+    print
 
     ##### START PIPELINE #############################################
     # This is where the pipeline looks at the data for the first time!
-    print " DS9: Starting with file " + ref_filename
+    print "* Calibrating the file displayed in DS9:"
+    print ref_filename
+    print
     dataref, hdr = pyfits.getdata(ref_filename, header=True)     
 
     # Check first DS9 image calibration and calibrate if required.   
@@ -791,6 +806,8 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     #ax2  = fig1.add_subplot(222)
     #fig2 = plt.figure(figsize=(12,12))
 
+    print "####################################################################"
+    print "Starting pipeline routine..."
     #seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1, ax2, ax3, ax4, ax5)
     seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
 if  __name__ == "__main__":
