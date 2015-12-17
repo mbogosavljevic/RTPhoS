@@ -44,7 +44,18 @@ import numpy as np
 import os
 import datetime
 from run_rtphos import make_png
+from   scipy.optimize import curve_fit
+#import matplotlib.pyplot as plt
 #import sys
+
+#===============================================================================
+# Define model function to be used for PSF fit to the stars:
+# in this case its a Gauss with a center Xc, sigma, amplitude A and base level B
+#===============================================================================
+def gauss(x, *p):
+    A, xc, sigma, B  = p
+    return A*np.exp(-(x-xc)**2/(2.*sigma**2)) + B
+
 
 #===============================================================================
 # Make a dictionary of selected header keywords and their values.
@@ -828,8 +839,8 @@ def makeflat(dsize, obsfilter, dirs, rtdefs):
     # a coefficient frame.
     flatmedian = np.median(masterflat)
     print "Flat Median: ", np.median(masterflat)
-    masterflat = masterflat/flatmedian
-    print "Nomalized Flat Median: ", np.median(masterflat)
+#    masterflat = masterflat/flatmedian
+#    print "Nomalized Flat Median: ", np.median(masterflat)
 
     # Output filename and header text construct.
     outfilename = rtdefs['mflat']
@@ -846,7 +857,7 @@ def makeflat(dsize, obsfilter, dirs, rtdefs):
     # Output the masterflat frame.
     writefits(masterflat, hdr_out, dirs['reduced']+outfilename)
     flatcheck = True
-    flat = (flatcheck, masterflat)
+    flat = (flatcheck, masterflat, flatmedian)
 
     os.chdir(prev_dir)
     return flat
@@ -862,43 +873,99 @@ def badmask(dirs, rtdefs):
 # rtdefs    - Type: Dictionary  - Default input parameters
 
 # Outputs:
-# pixelmap.fits - Type: File    - FITS file with the bad pixels detected
+# masterbad.fits - Type: File   - FITS file with the bad pixels detected
 
 # This routine depends on:
-# writefits  - Write the masterdark to a file.
+# writefits  - Writes the bad pixel mask to a file.
+# gauss      - Produces a Gaussian curve.
 
 # Modules required:
 # - astropy.io.fits
 # - numpy
 # - os
+# - scipy.optimize
 # ------------------------------------------------------------------------------
+
+    print "----------------------------------------------------------------"
+    print "* Creating a master bad pixel map..."
 
     # Move to the reduced files directory and import the master flat file.
     prev_dir = os.path.abspath(os.curdir)
     os.chdir(dirs['reduced'])
     flat, hdr_badpix = pyfits.getdata(rtdefs['mflat'], header=True)
-    # Find the flat median and the standard deviation values
-    median = np.median(flat)
-    stdev = np.std(flat)
-    print "Creating a bad pixel map...."
-    print "Median flat field value: ", median
-    print "Standard deviation value: ", stdev
 
-    # Calculate acceptable pixel value range. Set here to have a spread of 3 stdevs
-    lower = median-1.5*stdev
-    upper = median+1.5*stdev
-    print "Range of accepted pixel values: ", lower, upper
-    print
-
-    # Make the pixel mask
+    # Initial settings and counters.
     badmask = flat
-    badmask[badmask < lower] = 1
-    badmask[badmask > upper] = 1
-    badmask[badmask != 1] = 0
+    naxis1 = flat.shape[0]
+    naxis2 = flat.shape[1]
+    step = 16                      #### Hard coded step size
+    i = xbeg = ybeg = badpixs = 0
+    xstop = ystop = step
+
+    for x in range(0,naxis1,step):
+        for y in range(0,naxis2,step):
+            i = i + 1
+            xbeg = x
+            ybeg = y
+            xstop = xbeg + step
+            ystop = ybeg + step
+            #print xbeg, xstop, ybeg, ystop
+
+            # Crop the array to a box 16 pixels on each side
+            box=np.array(flat)[xbeg:xstop,ybeg:ystop]
+
+            # Calculate the histogram of pixel values in the box using 50 bins.
+            hist, bin_edges = np.histogram(box, bins=50)
+            bin_centers = (bin_edges[:-1] + bin_edges[1:])/2
+            boxmin=np.amin(box)
+            boxmax=np.amax(box)
+
+            # First approximations for Gaussian fit
+            peak = np.amax(hist)
+            center = np.median(box)
+            sigma = np.std(bin_centers)
+            base = 0.
+
+            params = [peak, center, sigma, base]
+
+            # Find the best Gaussian fit to the histogram
+            coeff, var_matrix=curve_fit(gauss, bin_centers, hist, params)
+
+            # Calculate the minimum and maximum accepted values.
+            #hwhm = (2.35482*coeff[2])/2.
+            xmin = coeff[1]-5.0*abs(coeff[2])
+            xmax = coeff[1]+5.0*abs(coeff[2])
+
+            # For debugging:
+            # Look at the histogram of a specific section of the image.
+            # Plot the histogram and best fit. Remember to import matplotlib as plt.
+            # First create a Gaussian with the best fit parameters then make the plot.
+#            if (i==100):      # Pick a box to look at by changing the counter value
+#                xfit=np.linspace(boxmin,boxmax,200)
+#                fit = gauss(xfit,*coeff)
+#                print "Peak position: ", coeff[1]
+#                print "Best fit sigma: ", coeff[2]
+#                print "Minimum & Maximum values: ", xmin, xmax
+
+#                plt.plot(bin_centers, hist, 'g')
+#                plt.plot(xfit,fit,'r')
+#                plt.axvline(xmin)
+#                plt.axvline(xmax)
+#                plt.show()
+
+            # Make the pixel mask
+            mask = box
+            mask[mask < xmin] = 1
+            mask[mask > xmax] = 1
+            mask[mask != 1] = 0
+            badmask[xbeg:xstop,ybeg:ystop]=mask
+
+    print "Found", int(np.sum(badmask)), "bad pixels"
+    print
 
     # Write the bad pixel mask to file
     hdr_out = hdr_badpix.copy(strip=True)
-    writefits(badmask, hdr_out, 'badpixelmap.fits') # Hard coded name (fix later)
+    writefits(badmask, hdr_out, 'masterbad.fits') # Hard coded name (fix later)
 
     del flat, hdr_badpix, badmask, hdr_out   #free some memory
 
@@ -910,6 +977,11 @@ def badmask(dirs, rtdefs):
 # Flag pixels depending on their quality. 
 #===============================================================================
 def pixflag(rtdefs, dirs, filename, image, hdr):
+
+    path, filename = os.path.split(filename)
+    filename = os.path.splitext(filename)
+    print "----------------------------------------------------------------"
+    print "* Creating pixel flags for file:", filename[0]
 
     # Make sure we are in the 'reduced' directory
     prev_dir = os.path.abspath(os.curdir)
@@ -930,8 +1002,8 @@ def pixflag(rtdefs, dirs, filename, image, hdr):
     flags = np.zeros((sizey, sizex))   
 
     # Load bad pixel map.
-    if os.path.isfile(dirs['reduced']+'badpixelmap.fits'): # ****HARD CODED FILE NAME!
-       badmask = pyfits.getdata('badpixelmap.fits')
+    if os.path.isfile(dirs['reduced']+'masterbad.fits'): # ****HARD CODED FILE NAME!
+       badmask = pyfits.getdata('masterbad.fits')
     else:
        badmask = np.zeros((sizey, sizex))
 
@@ -965,8 +1037,6 @@ def pixflag(rtdefs, dirs, filename, image, hdr):
 
     # Write the pixel flags to file
     hdr_out = hdr.copy(strip=True)
-    path, filename = os.path.split(filename)
-    filename = os.path.splitext(filename)
     writefits(flags, hdr_out, filename[0]+'.flg')
 
     os.chdir(prev_dir)
@@ -1044,8 +1114,8 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
     # Set calibration flags. Default setting should be False.
     # Change to True if you want to exclude some parts of the code for testing.
     biascor = False
-    darkcor = True
-    flatcor = True
+    darkcor = False
+    flatcor = False
 
     # Look for these IRAF keywords, if they exist assume that the image has 
     # been calibrated.
@@ -1124,30 +1194,33 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
              flat = makeflat(dsize, obsfilter, dirs, rtdefs)
              flatcheck = flat[0]
              masterflat = flat[1]
+             flatmedian = flat[2]
           else:
              flatcheck = True
        else:
           flat = makeflat(dsize, obsfilter, dirs, rtdefs)
           flatcheck = flat[0]
-          masterflat = flat[1]          
+          masterflat = flat[1]
+          flatmedian = flat[2]          
        if flatcheck:
+          masterflat = masterflat/flatmedian
           dataref = dataref/masterflat
           flattxt = "Frame was flat fielded by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+          print "* Median of flat field coefficients: ", np.median(masterflat)
           print "* Flat fielding successfull!"
 
     # Use the masterflat frame to make a bad pixel map
     pixelcheck = False
     if os.path.isfile(dirs['reduced']+rtdefs['mflat']):
-       if os.path.isfile(dirs['reduced']+'pixelmap.fits'):
+       if os.path.isfile(dirs['reduced']+'masterbad.fits'):
           pixelcheck = True
-       else: # Create the bad pixel mask if a master flat is found and pixelmap.fits does not exist
+       else: # Create the bad pixel mask if a master flat is found and masterbad.fits does not exist
           badmask(dirs, rtdefs)
           pixelcheck = True
     # if a masterflat does not exist when this is executed that means that a 
     # flat field frame and therefore a bad pixel mask could not be created.
     else:
        print "WARNING: A bad pixel mask cannot be created: missing master flat frame!"
-
 
     # Update the headers. 
     hdr_out = hdr_data.copy(strip=True)

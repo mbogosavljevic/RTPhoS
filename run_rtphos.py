@@ -59,13 +59,6 @@ def dict_of_floats(list_of_strings, num_items):
     return (result)
 
 ##############################################################################
-# Define model function to be used for PSF fit to the stars:
-# in this case its a Gauss with a center Xc, sigma, amplitude A and base level B
-def gauss(x, *p):
-    A, xc, sigma, B  = p
-    return A*np.exp(-(x-xc)**2/(2.*sigma**2)) + B
-
-##############################################################################
 def make_png(dirs, ref_filename, data, rbin):
 # requires f2n installed
 
@@ -80,6 +73,15 @@ def make_png(dirs, ref_filename, data, rbin):
     # TBD later, for now just label the frame
     png_image.writetitle(frame_name, colour=(200, 200, 0))
     png_image.tonet(png_image_name)     # write the png.
+
+
+##############################################################################
+# Define model function to be used for PSF fit to the stars:
+# in this case its a Gauss with a center Xc, sigma, amplitude A and base level B
+def gauss(x, *p):
+    A, xc, sigma, B  = p
+    return A*np.exp(-(x-xc)**2/(2.*sigma**2)) + B
+
 
 ##############################################################################
 def fwhm_from_star(image):
@@ -355,8 +357,8 @@ def run_photometry(rtdefs, dirs, inputfile, origfile, psf_fwhm):
 
     print "* Initiating photometry calculations..."
     print
-    #print filename+flagfile+psfpos+starpos+verbose
-    #print badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu
+    print filename+flagfile+psfpos+starpos+verbose
+    print badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu
 
     os.chdir(dirs['reduced'])  # Move to the reduced image directory
     p = Popen(["optimal"], stdin=PIPE, stdout=PIPE)
@@ -391,6 +393,7 @@ def run_photometry(rtdefs, dirs, inputfile, origfile, psf_fwhm):
     seeing = optimal_res[1]
     xypos = optimal_res[2]
     flags = optimal_res[3]
+    print flags
     
     aperture_res=dict_of_floats(aperture_data, total_stars)
     aperture_stars=aperture_res[0]
@@ -554,6 +557,21 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        outputfiles(alltargets, optimalist, aperatlist, flaglist, seeing, \
                                    frame_time, frame_timerr, pdatetime, sfilename, count)
 
+                      # Text output
+                       print "================================================="
+                       print "FILENAME ", filename
+                       print "FRAME_TIME ", frame_time, frame_timerr
+                       print "Optimal Photometry Results:"
+                       for i in range(0,len(optimalist)):
+                           print alltargets[i][1], optimalist[i][0], optimalist[i][1], \
+                                 seeing, xyposlist[i][0], xyposlist[i][1], flaglist[i]
+                       print "-------------------------------------------------"
+                       print "Aperature Photometry Results:"
+                       for i in range(0,len(aperatlist)):
+                           print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], \
+                                 seeing, xyposlist[i][0], xyposlist[i][1], flaglist[i]
+                       print
+
                        # Fill the data lists
                        xdata.append(twosig_time)
                        yseeing.append(seeing)
@@ -566,11 +584,11 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        terror     = float(optimalist[1][1])
                        ccounts    = float(optimalist[1][0])
                        cerror     = float(optimalist[1][1])
-                       ydfluxs    = (tcounts/ccounts)
-                       ydfluxerrs = ydfluxs*math.sqrt( ((terror/tcounts)**2.0) + \
-                                                     ((cerror/ccounts)**2.0) )
-                       ydflux.append(ydfluxs)                       
-                       ydfluxerr.append(ydfluxerrs)
+                       #ydfluxs    = (tcounts/ccounts)
+                       #ydfluxerrs = ydfluxs*math.sqrt( ((terror/tcounts)**2.0) + \
+                       #                              ((cerror/ccounts)**2.0) )
+                       #ydflux.append(ydfluxs)                       
+                       #ydfluxerr.append(ydfluxerrs)
 
                        # Begin graphics output calculations
                        # dataplt[dataplt == -inf] = 0.0             # Remove inf values
@@ -591,21 +609,6 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        #comp_crop = dataplt[compy-50:compy+50,compx-50:compx+50]
                        #comp_crop[comp_crop==0] = medianintens     # Remove zero values
                        #comp_crop = np.log(comp_crop)              # Use for log scale plotting
-
-                       # Text output
-                       print "================================================="
-                       print "FILENAME ", filename
-                       print "FRAME_TIME ", frame_time, frame_timerr
-                       print "Optimal Photometry Results:"
-                       for i in range(0,len(optimalist)):
-                           print alltargets[i][1], optimalist[i][0], optimalist[i][1], \
-                                 seeing, xyposlist[i][0], xyposlist[i][1], flaglist[i]
-                       print "-------------------------------------------------"
-                       print "Aperature Photometry Results:"
-                       for i in range(0,len(aperatlist)):
-                           print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], \
-                                 seeing, xyposlist[i][0], xyposlist[i][1], flaglist[i]
-                       print
 
            before = after
            time.sleep(tsleep)   # Wait for tsleep seconds before repeating

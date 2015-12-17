@@ -1,5 +1,8 @@
 
 
+Make the code recognize flats of different exposure times and deal with them accordingly.
+
+Sort out the proper sequence of creating a bad pixel map from a flat and flaging pixel quality in every image. The current implmentation works but is not efficient and is not selectible by the user.
 
 * Make a live graph of the data (like the matplotlib one but done with a different more reliable package)
 
@@ -11,8 +14,6 @@
 
 * Put switches in the default options to control which calibration steps to perform.
  
-* ccdcalib should check the header to see if the images have been calibrated by a previous run of RTPhoS.
-Currently this check is done by looking at only if a filename with"c_" prefix exists. This does not
-necessarily mean that the data is calibrated.
+* ccdcalib should check the header to see if the images have been calibrated by a previous run of RTPhoS. Currently this check is done by looking only if a filename with"c_" prefix exists. This does not necessarily mean that the data is calibrated.
 
 
