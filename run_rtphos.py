@@ -58,6 +58,7 @@ def dict_of_floats(list_of_strings, num_items):
     result = (dict_of_floats, seeing, xypos, flags)
     return (result)
 
+
 ##############################################################################
 def make_png(dirs, ref_filename, data, rbin):
 # requires f2n installed
@@ -99,6 +100,8 @@ def fwhm_from_star(image):
     take = np.where(r <= mr)
     cr  = r[take]
     im2 = image[take]
+#    hdu=pyfits.PrimaryHDU(im2)
+#    hdu.writeto("test.fits")
 
     # Get sorted radii
     ind = np.argsort(cr.flat)
@@ -123,9 +126,21 @@ def fwhm_from_star(image):
     p0 = [peak, 0., sigma, base]
     coeff, var_matrix = curve_fit(gauss, fullx, fully, p0=p0)
 
+#    For debugging: Uncomment to view the histogram and fit. Don't forget to
+#    uncomment the import matplotlib statement at the top.
+#    xfit=np.linspace(np.amin(fullx),np.amax(fullx),100)
+#    fit = gauss(xfit,*coeff)
+#    fwhm = int(2.3548 * coeff[2] * 100) / 100.0    
+#    print "Peak position: ", coeff[1]
+#    print "Best fit sigma and fwhm: ", coeff[2], fwhm
+#    plt.plot(fullx, fully, 'g')
+#    plt.plot(xfit,fit,'r')
+#    plt.show()
+
     # convert sigma to fwhm:
     fwhm = int(2.3548 * coeff[2] * 100) / 100.0
     return fwhm
+
 
 #############################################################################
 def get_comps_fwhm(comparisons, xpapoint):
@@ -140,7 +155,7 @@ def get_comps_fwhm(comparisons, xpapoint):
     nc = len(comparisons)
     tot_fwhm = 0.
     # comparisons is alist of tuples, in each tuple first element has x,y,r
-    print "I will use", nc, "star(s) to get an estimate of the FWHM:"
+    print "* I will use", nc, "star(s) to get an estimate of the FWHM:"
     for i in range(0,nc):
         xt = comparisons[i][0][0]
         yt = comparisons[i][0][1]
@@ -151,12 +166,17 @@ def get_comps_fwhm(comparisons, xpapoint):
         y2 = yt + r   
         # caution - I don't know why order of x and y is inverted here
         crop_image = image[y1:y2,x1:x2]
+#        hdu=pyfits.PrimaryHDU(crop_image)
+#        hdu.writeto("test.fits")
         fwhm = fwhm_from_star(crop_image)
         cname = (comparisons[i][1])
         print i+1, cname, fwhm
-        tot_fwhm = tot_fwhm + fwhm
+        tot_fwhm = tot_fwhm + abs(fwhm)
         
     mean_fwhm = tot_fwhm / nc
+    print "* Calculated a mean FWHM of:",  ("%.2f" % abs(mean_fwhm)),"pixels"
+    print
+
     return mean_fwhm
 
 #############################################################################
@@ -167,6 +187,7 @@ def stripdate(longjd):
     shortjd =  jd - twosig
 
     return (shortjd, twosig)
+
 
 #############################################################################
 def barytime(checklist):
@@ -244,7 +265,7 @@ def zach_offsets(dataref,data2red):
     
     # WARNING - This is completely arbitrary but usually
     # pixels that correspond to actual stars will have values
-    # a lot greater than 100.
+    # a lot greater than 100. (Will need to change this to the median sky value)
     
     mask1   = croped1
     mask1[mask1 < 1.5*median1] = 0.0
@@ -287,8 +308,8 @@ def zach_offsets(dataref,data2red):
     
     return (xshift, yshift)
 
-#############################################################################
 
+#############################################################################
 def write_optphot_init(rtdefs, imdir, comparisons, targets, thisoffset):
 
     text_file1 = open(imdir+rtdefs['psfs'], "w")
@@ -393,7 +414,6 @@ def run_photometry(rtdefs, dirs, inputfile, origfile, psf_fwhm):
     seeing = optimal_res[1]
     xypos = optimal_res[2]
     flags = optimal_res[3]
-    print flags
     
     aperture_res=dict_of_floats(aperture_data, total_stars)
     aperture_stars=aperture_res[0]
@@ -406,9 +426,14 @@ def run_photometry(rtdefs, dirs, inputfile, origfile, psf_fwhm):
     os.chdir(dirs['data'])  # Move back to the raw data directory
     return photometry_result
 
+
 #############################################################################
-def outputfiles(alltargets, optimalist, aperatlist, flaglist, seeing, \
+def outputfiles(dirs, alltargets, optimalist, aperatlist, flaglist, seeing, \
                 frame_time, frame_timerr, pdatetime, filename, count):
+
+    # Move to the reduced files directory
+    prev_dir = os.path.abspath(os.curdir)
+    os.chdir(dirs['reduced'])
 
     # Loop will write out files with the following outputformat:
     # seq. number, frame_time, frame_timerr, flux, flux error, seeing
@@ -438,6 +463,8 @@ def outputfiles(alltargets, optimalist, aperatlist, flaglist, seeing, \
     ### delete them and then proceed with the reduction(?)
     ### Should we place the output files in a new directory (e.g. output)?
 
+    # Return to the previous directory
+    os.chdir(prev_dir)
     return
 
 
@@ -445,7 +472,19 @@ def outputfiles(alltargets, optimalist, aperatlist, flaglist, seeing, \
 def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
 # requires zach_offsets, write_optphot_init
     
-    # Reduced data lists
+    # Combine targets and comparison star initial data (position, names, etc)
+    alltargets = targets + comparisons
+    ncomp = len(comparisons)  # number of comparison stars
+    ntarg = len(targets)      # number of target stars
+
+    goodframes=[]
+    initx = []
+    inity = []
+    compxvals = []
+    compyvals = []
+    newoffsets=[]
+
+    # Initialize educed data lists
     xdata=[]         # X-axis data (time)
     yseeing=[]       # Seeing data
     yrawtarget=[]    # Raw target counts
@@ -500,7 +539,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                            pdatetime = checklist['DATE']+"|"+checklist['TIME']
                            #print ("HERE",mdatetime)
                            # this is needed to get plot-able UTC time
-                           sdatetime = datetime.strptime(mdatetime,  "%Y-%m-%d %H:%M:%S")                        
+                           sdatetime = datetime.strptime(mdatetime,  "%Y-%m-%d %H:%M:%S")
                            mdatetime = Time(mdatetime, format='iso', scale='utc')
                            time_frame  = mdatetime.jd # in days
                            exposure = float(checklist['EXPOSURE']) # in seconds
@@ -551,16 +590,41 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        xyposlist  = xypos.values()
                        flaglist   = flags.values()
 
-                       # File output
+                       # File output (Put the filename in a list)
                        junk, sfilename = os.path.split(filename)
-                       alltargets = targets + comparisons
-                       outputfiles(alltargets, optimalist, aperatlist, flaglist, seeing, \
+                       goodframes.append(sfilename)
+                       outputfiles(dirs, alltargets, optimalist, aperatlist, flaglist, seeing, \
                                    frame_time, frame_timerr, pdatetime, sfilename, count)
 
-                      # Text output
+                       # Calculate more accurate offsets based on the optimal 
+                       # photometry results. If optimal results not available
+                       # keep the offsets from image cross-correlation routine.
+                       for i in range(0, ncomp):
+                           compxvals.append(xypos[i+ntarg][0])
+                           compyvals.append(xypos[i+ntarg][1])
+
+                       compxvals = [float(i) for i in compxvals]
+                       compyvals = [float(i) for i in compyvals]
+
+                       if (count==1):
+                          compxoffs=[0.0]
+                          compyoffs=[0.0]
+                          initx = compxvals
+                          inity = compyvals
+                       else:
+                          compxoffs=(np.array(initx)-np.array(compxvals))
+                          compyoffs=(np.array(inity)-np.array(compyvals))
+
+                       frameoffs = (np.mean(compxoffs), np.mean(compyoffs))
+                       newoffsets.append(frameoffs)
+                       compxvals=[]
+                       compyvals=[]
+                       
+                       # Text output
                        print "================================================="
-                       print "FILENAME ", filename
-                       print "FRAME_TIME ", frame_time, frame_timerr
+                       print "Filename: ", filename
+                       print "Frame time           : ", frame_time, frame_timerr
+                       print "Refined frame offsets: ", "%.4f %.4f" % frameoffs
                        print "Optimal Photometry Results:"
                        for i in range(0,len(optimalist)):
                            print alltargets[i][1], optimalist[i][0], optimalist[i][1], \
@@ -571,6 +635,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                            print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], \
                                  seeing, xyposlist[i][0], xyposlist[i][1], flaglist[i]
                        print
+
 
                        # Fill the data lists
                        xdata.append(twosig_time)
@@ -614,9 +679,13 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
            time.sleep(tsleep)   # Wait for tsleep seconds before repeating
 
     except KeyboardInterrupt:
-       pass
+       print "Performing second pass for optimal photometry...Please wait!" 
+       print
+       ###### WORK IN PROGRESS! THIS IS THE PROPER WAY OF RUNNING THE OPTIMAL
+       ###### PHOTOMETRY CODE (READ THE PAPERS!)
 
     return
+
 
 #############################################################################
 def run_rtphos(rtphosdir, xpapoint, pathdefs):
@@ -721,23 +790,26 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     # Ceontrid regions in DS9
     win.set("regions select all")
 
+    #### DISABLED DS9 CENTROIDING. IT IS TOO UNRELIABLE. BETTER TO RELY ON USER
+    #### IN ANY CASE THE TARGETS WILL BE CENTROIDED BY OPTIMAL.F90 IN A MUCH
+    #### MORE ROBUST WAY!
     # I do it twice with different radii on purpose
-    win.set("regions centroid radius 20")
-    win.set("regions centroid iteration 20")
+    #win.set("regions centroid radius 20")
+    #win.set("regions centroid iteration 20")
     # not happy at all with DS9 centering so repeating it 20 times
-    for x in range(0, 19):
-        win.set("regions centroid")
-    win.set("regions centroid radius 5")
-    win.set("regions centroid iteration 5")
-    win.set("regions centroid")
+    #for x in range(0, 19):
+    #    win.set("regions centroid")
+    #win.set("regions centroid radius 5")
+    #win.set("regions centroid iteration 5")
+    #win.set("regions centroid")
     # put back the default
-    win.set("regions centroid radius 20")
-    win.set("regions centroid iteration 20")
+    #win.set("regions centroid radius 20")
+    #win.set("regions centroid iteration 20")
 
     # save regions file for later
-    win.set("regions format ds9")
-    win.set("regions save "+ ref_filename + ".reg")
-
+    win.set("regions -format ds9")
+    win.set("regions save "+ ref_filename +".reg")
+    
     # Get source (target, comparison) lists from regions selected
     sourcelist = win.get("regions selected") 
     sources    = pyregion.parse(sourcelist)
@@ -781,8 +853,6 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
 
     # get FWHM of stellar PSF using comparison stars
     psf_fwhm = get_comps_fwhm(comparisons, xpapoint)
-    print "* Calculated a FWHM of:",  ("%.2f" % psf_fwhm),"pixels"
-    print
 
     ##### START PIPELINE #############################################
     # This is where the pipeline looks at the data for the first time!
@@ -812,6 +882,8 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     print "####################################################################"
     print "Starting pipeline routine..."
     #seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1, ax2, ax3, ax4, ax5)
+
+
     seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
 if  __name__ == "__main__":
 
