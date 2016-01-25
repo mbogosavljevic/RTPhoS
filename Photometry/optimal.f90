@@ -41,14 +41,14 @@ program optimal_phot
 ! ------------------------------------------------------------------------------
 
 ! Various counters & test variables
-  integer :: iunit1, iostat, eof1, i, j, rows, cols, blines, fnum, num, ounit
+  integer :: i, j, fnum, num
   integer :: progcnt, stepcnt
 
   real :: searchrad
 
-  logical :: there, verbose, filelist
+  logical :: verbose
 
-  character (len=1)  :: verbosein, filelistin
+  character (len=1)  :: verbosein
   character (len=3)  :: suf  
   character (len=80) :: wformat
   character (len=80) :: dummy
@@ -60,7 +60,7 @@ program optimal_phot
   integer :: low(2), high(2)
 
   real :: datamin, datamax, nullval
-  real, allocatable :: numflag(:,:) ! **** This is the image pixel flags array
+  real, allocatable :: numflag(:,:)  ! **** This is the image pixel flags array
   real, allocatable :: data(:,:)     ! **** This is the image data array
 
   logical :: anynul
@@ -87,7 +87,7 @@ program optimal_phot
   character(len=10) :: clipanswer, distanswer 
 
 ! Variables regarding Target stars
-  integer :: istar, nstar, nframes, ntimes 
+  integer :: istar, nstar, nframes, ntimes
      
   logical :: comp, iftimes
   real :: xcomp, ycomp
@@ -136,24 +136,16 @@ program optimal_phot
 ! Actual program starts here.
 ! ***************************************************************
 
-! Read input parameters
-  read*, filename, flagfile, psfpos, starpos, verbosein
-  read*, bad_sky_skw, bad_sky_chi, fwhm, clip_fwhm, aprad, iopt, searchrad, adu
-
-! J1753.fits psf.cat stars.cat N
-! -1 -1 2 5 10 1 5 6.2
-
 ! Initialize variables, set global constants
+  npsf = 0         ! Number of PSF stars
+  nstar = 0        ! Number of Target stars
+  status = 0       ! Required by CFITSIO
+  optimal=.true.   ! Switch for running the optimal photometry code
+  aperature=.true. ! Switch for running the aperature photometry code
 
-  rows = 0    ! Number of rows in a text file    (used in subs.f90)
-  cols = 0    ! Number of columns in a text file (used in subs.f90)
-  blines = 3  ! Number of top lines to ignore in a text file (used in subs.f90)
-  npsf = 0    ! Number of PSF stars
-  status = 0  ! Required by CFITSIO
-
-  optimal=.true.
-  aperature=.true.
-!  verbosein = "N" 
+! Read input parameters
+  read*, filename, flagfile, npsf, nstar, verbosein
+  read*, bad_sky_skw, bad_sky_chi, fwhm, clip_fwhm, aprad, iopt, searchrad, adu
 
 ! Set the program output type
   verbose = .False.
@@ -162,99 +154,75 @@ program optimal_phot
 ! ***************************************************************
 ! Read the co-ordinates for each PSF star.
 ! ***************************************************************
+  if (npsf>0) then
+     ! Allocate PSF star arrays
+     allocate(psfnames(npsf))
+     allocate(psfstars(3,npsf))           !star id, x, y pixel coordinates
+     allocate(xpos0(npsf))
+     allocate(ypos0(npsf))
+     allocate(dpsf(npsf))
 
-! Open the file with the position(s) of the psf star(s) and
-! read the positions of the psf star(s). 
-! The format of the input PSF star file should have 3 comment or
-! blank lines at the top and then 3 columns:
-! ID#, X-coordinate, Y-Coordinate
-
-! Check to see that the file exists
-  inquire(file=psfpos, exist=there)
-  if (.not. there) then
-     print*, '* PSF Positions File Not Found.'
-     print*, '* Proceeding with Aperature Photometry only!'
-     print*
-     optimal=.False.
-     aperature=.True.
-     clip_fwhm = -1.0
-  end if 
-  if (optimal) then
-     call ftgiou(iunit1, status)            
-     open (unit=iunit1, file=psfpos, status='old', access='sequential')
-     call xsize(iunit1, cols, rows, blines)
-     if (verbose) print*, "* Found ", rows, "PSF star location(s): "
-     npsf = rows
-     allocate(psfstars(cols,rows))
-     allocate(psfnames(rows))
-     rewind(iunit1)
-     call readit(iunit1, cols, rows, blines, psfstars, psfnames)
-     close(iunit1)
-     call ftfiou(iunit1, status)
+     do i=1, npsf
+        psfstars(1,i)=i
+        read*, psfnames(i), psfstars(2,i), psfstars(3,i)
+     end do
+     
      if (verbose) then
-        do i=1, rows
-           print*, "* PSF Star ",psfnames(i)," at position (X,Y):", &
+        print*, '@ Read ', npsf, 'PSF star location(s): '
+        do i=1, npsf
+           print*, "@ PSF Star ",psfnames(i)," at position (X,Y):", &
                    real(psfstars(2,i)), real(psfstars(3,i))    
         end do
+        print*
      end if 
-     if (verbose) print*
+  
+  else
+     print*, '@ No PSF stars. Proceeding with Aperature Photometry only!'   
+     print*
+     optimal=.False.
+     clip_fwhm = -1.0
   end if
-
-  allocate(xpos0(npsf))
-  allocate(ypos0(npsf))
-  allocate(dpsf(npsf))
 
 ! *******************************************************************
 ! Read the co-ordinates for each target star.
 ! *******************************************************************
 
-! Open the file with the position(s) of the target star(s) and
-! read the positions of the target star(s). 
-! The format of the input file should have 3 comment or
-! blank lines at the top and then 3 columns:
-! ID#, X-coordinate, Y-Coordinate  
+  if (nstar>0) then
+     ! Allocate target star arrays
+     ! Since this is the pipeline version it runs every time for a single frame.
+     ! Therefore ntimes must equal 1.
+     ntimes = 1
+     nstar=nstar+npsf
+     allocate(starnames(nstar))
+     allocate(dpos(nstar))
+     allocate(stars(3,nstar))             
+     allocate(optres(nstar,2,ntimes))   !star id, flux, eflux, no of points
+     allocate(apres(nstar,2,ntimes))    !star id, flux, eflux, no of points
+     allocate(flagres(nstar,2,ntimes))  !star id, optimal flag, aperature flag, no of points
+     allocate(newxypos(nstar,2,ntimes)) !star id, xpos, ypos, no of points
+     allocate(newpsfpos(npsf,2,ntimes)) !star id, xpos, ypos, no of points
+     allocate(seeing(ntimes))           !seeing
 
-! Initialize the file opening variables
-  rows = 0
-  cols = 0
-  blines = 3 
-
-! Check to see that the file exists.
-  inquire(file=starpos, exist=there)
-  if (.not. there) then
-     print*, '* WARNING Target Star Positions Not Found. Nothing to do. Exiting....'
+     do i=1, nstar
+        stars(1,i)=i
+        read*, starnames(i), stars(2,i), stars(3,i)
+     end do
+     
+     if (verbose) then
+        print*, '@ Read ', nstar, 'star location(s): '
+        do i=1, nstar
+           print*, "@ Object ",starnames(i)," at position (X,Y):", &
+                   real(stars(2,i)), real(stars(3,i))    
+        end do
+        print*
+     end if 
+     
+  else
+     print*, 'WARNING: Target Star Positions Not Found. Nothing to do.'
+     print*, 'Exiting....!'   
+     print*
      stop
   end if
-
-  call ftgiou(iunit1, status)           
-  open (unit=iunit1, file=starpos, status='old', access='sequential')
-  call xsize(iunit1, cols, rows, blines)
-  if (verbose) print*, "* Found ", rows, "star location(s): "
-  nstar = rows
-  allocate(stars(cols,rows))
-  allocate(starnames(rows))
-  allocate(dpos(nstar))
-  rewind(iunit1)
-  call readit(iunit1, cols, rows, blines, stars, starnames)
-  close(iunit1)
-  call ftfiou(iunit1, status)
-  if (verbose) then
-     do i=1, rows
-        print*, "* Object ",starnames(i),"at position (X,Y):", &
-                real(stars(2,i)), real(stars(3,i))    
-     end do
-  end if 
-
-! Allocate all the arrays.
-! Since this is the pipeline version it runs every time for a single file.
-! Therefore ntimes must equal 1.
-  ntimes = 1
-  allocate(optres(nstar,2,ntimes))   !star id, flux, eflux, no of points
-  allocate(apres(nstar,2,ntimes))    !star id, flux, eflux, no of points
-  allocate(flagres(nstar,2,ntimes))  !star id, optimal flag, aperature flag, no of points
-  allocate(newxypos(nstar,2,ntimes)) !star id, xpos, ypos, no of points
-  allocate(newpsfpos(npsf,2,ntimes)) !star id, xpos, ypos, no of points
-  allocate(seeing(ntimes))           !seeing
 
 ! ***************************************************************
 ! Setup all the optimal and aperature photometry options
@@ -264,7 +232,7 @@ program optimal_phot
   ! Most of the signal-to-noise is obtained by setting the clipping
   ! radius to be 2*fwhm.  But there is little gain in speed by
   ! making it less than 3 pixels.
-  if (clip_fwhm < 0.0) then 
+  if (clip_fwhm <= 0.0) then 
      optimal = .False.
      clip_fwhm=-1.0
   else
@@ -291,8 +259,8 @@ program optimal_phot
                        exit optstar
                     end if
       	         end do
-	             print*, "* WARNING: The star to optimize for is not in the target list."
-                 print*, " (Optimal) Will proceed with sky limited optimization."
+	         print*, "WARNING: The star to optimize for is not in the target list."
+                 print*, "         (Optimal) Will proceed with sky limited optimization."
                  print*
                  iopt=-1
                  exit optstar
@@ -313,44 +281,43 @@ program optimal_phot
      dpos=2.0*fwhm
   end if
   if (searchrad <=0.0) then
-     print*, "* WARNING: Search radius is zero or negative. No centroiding will be performed"
-     print*, "*(Optimal) and the positions will be fixed to the input values."
+     print*, "WARNING: Search radius is zero or negative. No centroiding will be performed"
+     print*, "         and the object positions will be fixed to their input values."
      print*
+     dpos = -1.0
   end if
 
 ! Summary of all the setup options.
   if (verbose) then
      print*, 'Photometry will be performed with the following options:'
      print*, '========================================================'
-     print*, 'Input PSF file                      :',trim(psfpos)
-     print*, 'Stars listed in the PSF file        :',npsf
-     print*, 'Input target star file              :',trim(starpos)
-     print*, 'Stars listed in the target star file:',nstar
-     print*, 'Sky skew flag limit                 :',bad_sky_skw
-     print*, 'Sky Chi^2 flat limit                :',bad_sky_chi
-     print*, 'FWHM of image                       :',fwhm
-     print*, 'PSF clipping radius                 :',clip_fwhm
-     print*, 'Aperature photometry radius         :',aprad
-     print*, 'Star to be optimized (-ve if all)   :',iopt
-     print*, 'Centroid search radius              :',dpsf(1)
-     print*, 'Detector gain (e-/ADU)              :',adu
+     print*, 'Number of PSF stars              :',npsf
+     print*, 'Number of target stars           :',nstar
+     print*, 'Sky skew flag limit              :',bad_sky_skw
+     print*, 'Sky Chi^2 flat limit             :',bad_sky_chi
+     print*, 'FWHM of image                    :',fwhm
+     print*, 'PSF clipping radius              :',clip_fwhm
+     print*, 'Aperature photometry radius      :',aprad
+     print*, 'Star to be optimized (-ve if all):',iopt
+     print*, 'Centroid search radius           :',dpsf(1)
+     print*, 'Detector gain (e-/ADU)           :',adu
      print*, '======================================================='
      print*
   end if
 
 ! Check to see what kind of photometry will be performed.
   if (.not.optimal) then
-     print*, '* Optical Photometry will not be performed'
+     print*, '@ Optical Photometry will not be performed'
      flagres(:,1,:)='-'
   end if
   if (.not.aperature) then
-     print*, '* Aperature Photometry will not be performed'
+     print*, '@ Aperature Photometry will not be performed'
      flagres(:,2,:)='-'
   end if
 
 ! If both the optimal and photometry options are negative exit the program.
   if ((.not.optimal).and.(.not.aperature)) then
-     print*, '* Nothing to do! Exiting...'
+     print*, '@ Nothing to do! Exiting...'
      stop
   end if
 
@@ -359,10 +326,10 @@ program optimal_phot
 ! ***************************************************************
 
   frame: do fnum=1, ntimes
-
+  
          ! First read in the image data into a data array.
          ! Initialize CFITSIO required variables. 
-         if (verbose) print*, "Filename: ", filename         
+         if (verbose) print*, "@ Filename: ", filename         
          nfound=0
          naxis=2
          group=1
@@ -370,24 +337,25 @@ program optimal_phot
          nullval=-999
          status=0
          readwrite=0
-
          call ftgiou(unit, status)
          call ftopen(unit, filename, readwrite, blocksize, status)
          call ftgknj(unit, 'NAXIS', 1, 2, naxes, nfound, status)
          if (nfound /= 2)then
-            if (verbose) print *,'Could not read image. Moving to the next frame...'
+            if (verbose) print *,'@ Could not read image. Moving to the next frame...'
             cycle frame
          end if
          ! Allocate the data array and determine the first and last pixels of the image.
          fpix=1
          lpix=naxes
-	     low=fpix
+	 low=fpix
          high=lpix
+
          allocate(data(1:naxes(1),1:naxes(2)))
          allocate(numflag(1:naxes(1),1:naxes(2)))
          allocate(pix_flg(1:naxes(1),1:naxes(2)))
          ! Read the data into the data array
          call ftgsve(unit, group, naxis, naxes, fpix, lpix, inc, nullval, data, anynul, status )
+         print*, "Status 2: ", status
 !         Print somethings from the FITS file to confirm that it read properly.
 !         print*, naxis, naxes(1), naxes(2)
 !         print*, fpix(1), fpix(2)
@@ -417,13 +385,13 @@ program optimal_phot
          call ftgknj(unit, 'NAXIS', 1, 2, naxes, nfound, status)
 !        if there is a problem set all flags to OK.
          if (nfound /= 2)then
-            if (verbose) print *,'Flag file cannot be read. All flags will be set to O'
+            if (verbose) print *,'@ Flag file cannot be read. All flags will be set to O'
             pix_flg = 'O'
          end if
          ! Allocate the data array and determine the first and last pixels of the image.
          fpix=1
          lpix=naxes
-	     low=fpix
+	 low=fpix
          high=lpix
 !        Read in the numeric pixel flags
          call ftgsve(unit, group, naxis, naxes, fpix, lpix, inc, nullval, numflag, anynul, status )
@@ -450,7 +418,7 @@ program optimal_phot
             ypos0 = real(psfstars(3,:))
 
             do i=1, npsf              
-               if (verbose) print*, 'Estimated position of PSF star ',i, 'is ', &
+               if (verbose) print*, '@ Estimated position of PSF star ',i, 'is: ', &
                             xpos0(i), ypos0(i)
             end do
 
@@ -463,9 +431,9 @@ program optimal_phot
             if (ipsf == -1) then
                optimal = .False.
                if (verbose) then 
-                  print*, 'WARNIG: No good PSF star could be found within frame.'
-                  print*, '        Setting optimal fluxes to zero for this frame.'
-                  print*, '        ...continuing with aperature photometry only!'
+                  print*, 'WARNING: No good PSF star could be found within frame.'
+                  print*, '         Setting optimal fluxes to zero for this frame.'
+                  print*, '         ...continuing with aperature photometry only!'
                end if
                flagres(:,1,fnum)='J'
        	       optres(:,1,fnum)=0.0
@@ -475,20 +443,18 @@ program optimal_phot
             if (optimal) then
                ! We now have a better estimate of fwhm, so use this instead.
                fwhm=1.665*sqrt(shape_par(1)*shape_par(2))
-               !cliprad = clip_fwhm*1.665*sqrt(shape_par(1)*shape_par(2))  
-               cliprad = 3.0*fwhm            
-
-               ! Save the estimate of the seeing to an array.
-               seeing(fnum)=sqrt(1.665*shape_par(1)*1.665*shape_par(2))
+               seeing(fnum)=fwhm ! Save the estimate of the seeing to an array.
+               cliprad = clip_fwhm*1.665*sqrt(shape_par(1)*shape_par(2))  
+               !cliprad = 3.0*fwhm            
+               
     	       if (verbose) then
                   print*, "@ New FWHM and Clipping radius is: ", fwhm, cliprad
-                  print*, "@ Seeing is: ", seeing(fnum)
-                  print*, 'Fitted PSF star ', int(psfstars(1,ipsf)), &
+                  print*, '@ Fitted PSF star ', int(psfstars(1,ipsf)), &
                           ' which gave FWsHM ', 1.665*shape_par(1), 1.665*shape_par(2)
-                  print*, 'Rotated at an angle of ', 57.29*shape_par(3), &
+                  print*, '@ Rotated at an angle of ', 57.29*shape_par(3), &
                        ' degrees from the vertical.'
-                  print*, 'Chosen using ', nfit, ' stars.'
-                  print*, 'Will use a clipping radius of ', cliprad, ' pixels.'
+                  print*, '@ Chosen using ', nfit, ' stars.'
+                  print*, '@ Will use a clipping radius of ', cliprad, ' pixels.'
 	           end if
 
                !Now get a handle on the flux in the star to be extracted optimally.
@@ -514,7 +480,7 @@ program optimal_phot
                      optnrm=0.0
                   end if
 
-                  if (verbose) print*, 'Extractions will be optimised for stars with ',&
+                  if (verbose) print*, '@ Extractions will be optimised for stars with ',&
                                      optnrm,' peak counts.'
                   optnrm=optnrm/(skynos*skynos)
                else                            
@@ -562,51 +528,27 @@ program optimal_phot
                          comp, xcomp, ycomp, optflux, opterror, &
                          xfit, yfit, xerr, yerr, peak, cflag, skynos,verbose)
 		       if (verbose) then
-		          print*, 'New position of star',starnames(istar),':', xfit, yfit
-                  print*, 'Star is flagged as: ', cflag
-		          print*, '1st pass flux is: ', optflux, opterror
+		          print*, '@ New position of object ',trim(starnames(istar)),':', xfit, yfit
+                  print*, '@ Opphot flux for object ',trim(starnames(istar)),&
+                          ' is: ',optflux,'+/-',opterror, "(counts)"
 		       end if
                ! Put the flux and its error in the output array and flag the result.	    
        	       optres(istar,1,fnum)=optflux
-	           optres(istar,2,fnum)=opterror
+	       optres(istar,2,fnum)=opterror
                flagres(istar,1,fnum)= cflag
+               ! Set the newly calculated positions.
+		       newxypos(istar,1,fnum)=xfit
+		       newxypos(istar,2,fnum)=yfit
 
-               ! If the star was not in the frame go to the next one
-		       ! otherwise perform a second pass this time fixing the
-               ! position of the star.	    
+               ! If the star was not in the frame go to the next one.
 		       if (opterror<0.0) then 
 		          newxypos(istar,1,fnum)=-1.0
 		          newxypos(istar,2,fnum)=-1.0
-	              apres(istar,1,fnum)=0.0 
+	                  apres(istar,1,fnum)=0.0 
 		          apres(istar,2,fnum)=-1.0
                   cycle each_star
-		       else
-               ! *** Make the code keep a track of the star position in all frames.
-		          newxypos(istar,1,fnum)=xfit
-		          newxypos(istar,2,fnum)=yfit
-       	          optres(istar,1,fnum)=optflux
-	              optres(istar,2,fnum)=opterror
-!                 Do a second pass but this time with the star positions fixed.
-                  xpos = xfit
-                  ypos = yfit
-                  posfix=-1.0    ! Do not centroid
+               end if
 
-		          if (verbose) print*, 'Perfoming 2nd pass for star',starnames(istar),&
-                                       'with its position fixed to', xfit, yfit
-
-                  call extr(data, pix_flg, xpos, ypos, posfix, adu, & 
-                            high, low, fwhm, cliprad, shape_par, optnrm, &
-                            comp, xcomp, ycomp, optflux, opterror, &
-                            xfit, yfit, xerr, yerr, peak, cflag, skynos,verbose)
-
-                 ! Update the flag, the flux and its error in the output array.	    
-          	     optres(istar,1,fnum)=optflux
-	             optres(istar,2,fnum)=opterror
-                 flagres(istar,1,fnum)= cflag
-		       end if
-
-		       if (verbose) print*, 'Opphot flux for object', &
-                                   starnames(istar),'is:',optflux,'+/-',opterror
 		    end if
 
 		    ! In addition to Optimal photometry do aperature photometry as well
@@ -648,18 +590,25 @@ program optimal_phot
 
                ! Screen output for aperture photometry results.
                if (verbose) then
-                   print*, 'Star is flagged as: ', cflag
-                   print*, 'Apphot flux for star', stars(1,istar), 'is', &
-                            apflux, 'counts +/- ',aperror
+
+                   print*, '@ Apphot flux for object ',trim(starnames(istar)), &
+                           ' is: ',apflux, '+/-',aperror, "(counts)"
+                   print*, '@ Object is flagged as: ', cflag               
                end if
 
       	       apres(istar,1,fnum)=apflux
-	           apres(istar,2,fnum)=aperror
+	       apres(istar,2,fnum)=aperror
                flagres(istar,2,fnum)=cflag
 
+            else
+            
+      	       apres(istar,1,fnum)=-1.0
+	       apres(istar,2,fnum)=-1.0
+               flagres(istar,2,fnum)= "N/A"
+               
             end if
 
-		    if (verbose) print*
+         if (verbose) print*
 
          end do each_star
 
@@ -678,7 +627,7 @@ program optimal_phot
 ! ***************************************************************
 !  wformat='(I5," ",F13.4," ",F10.4," ",F7.4)'
 ! Write the optimal photometry output to screen.
-!  if (optimal) then
+! if (optimal) then
      do i=1, nstar
         do j=1, ntimes
            print*, starnames(i), optres(i,1,j), optres(i,2,j), seeing(j), newxypos(i,1,j), newxypos(i,2,j), flagres(i,1,j) 
@@ -741,134 +690,3 @@ subroutine printerror(status)
   end do
 
 end subroutine printerror
-
-!******************************************************************************
-! xsize - gets the number of columns and rows in an ascii file.
-!******************************************************************************
-
-subroutine xsize(unit, cols, rows, blines)
-
-!       This subroutine finds the number of columns and rows in an ASCII file.
-!       The program can handle up to 3 blank lines at the top of the file and
-!       the file line length must be 80 characters.
-
-!       Variable definitions.
-!       *********************************************************************
-
-        character(len=80) :: line
-
-        integer :: i, j, nline, unit, eof1, cols, rows, flag, blines 
-
-        double precision :: dummy
-
-!       *********************************************************************
-
-        cols = 0
-        rows = 0
-        nline = 4
-
-        if (blines/=0) then
-           do j=1, blines
-              read(unit,*)
-           end do
-           nline = 1
-        end if
-
-        blanks: do j=1, nline
-
-                   read(unit,'(a)')line
-
-                   columns: do i=1, 80
- 
-                            if (line(i:i)==' ') then
-                               flag = 0
-                            else
-                               flag = 1
-                            end if
-
-                            if (i==1.and.flag==1) then
-                               cols = cols + 1
-                               cycle columns 
-                            end if
-                            if (flag==1.and.line(i-1:i-1)==' ') then
-                               cols = cols + 1
-                            end if
-
-                   end do columns
-
-                   if (cols==0) then
-                      blines = blines + 1
-                      cycle blanks
-                   else
-                      exit blanks
-                   end if
-
-        end do blanks
-
-        if (cols==0) then
-           print*
-           print*, '*** WARNING: Failed to find any columns, please check file!'
-           print*
-           stop
-        end if
-
-!       Now measure the number of rows in the file.
-        rewind(unit)
-        eof1 = 0
-
-        if (blines/=0) then
-           do i=1, blines
-              read(unit,*)
-           end do
-        end if
-
-        do
-          read (unit,*,iostat=eof1)dummy
-          if (eof1/=0) exit
-          rows = rows + 1
-        end do
-
-end subroutine xsize
-
-!******************************************************************************
-! readit - reads in the coordinates and names of the PSF and target stars.
-!******************************************************************************
-subroutine readit(unit, cols, rows, blines, data, starname)
-
-!       This subroutine reads in files into a data array.
-!       The program can handle arrays with up to 5 columns.
-
-!       Variable definitions.
-!       *********************************************************************
-
-        integer :: i, unit, eof1, cols, rows, blines
-
-        double precision :: data(cols,rows)   
-
-        character (len=15):: starname(rows)
-
-!       *********************************************************************
-
-        eof1 = 0
-
-!       Go past any blank lines that might exist at the top of the file.
-        if (blines/=0) then
-           do i=1, blines
-              read(unit,*)
-           end do
-        end if
-
-        do i=1, rows
-           if (eof1/=0) exit
-           if (cols==4) then
-              read(unit,*,iostat=eof1)data(1,i), data(2,i), data(3,i), starname(i)
-           else
-              print*
-              print*, '*** WARNING: Something wrong with the stars or PSF files,'
-              print*, '             Check their format and try again!! Exiting...'
-              print*
-              stop
-           end if
-        end do
-
-end subroutine readit

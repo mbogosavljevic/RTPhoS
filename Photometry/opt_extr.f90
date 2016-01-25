@@ -66,7 +66,7 @@
      integer, private :: naxis2
 
      ! A local debugging variable, set true if you want lots of messages.
-     logical, private :: debug=.False.
+     logical, private :: debug=.True.
 
      ! The sky histogram, and the fit to it.  Placed here so they can be
      ! accessed by other programs through the routines skyhst and skymod.
@@ -160,10 +160,10 @@
          if (nint(xpsf(i)-fwhm)<low(1) .or. nint(xpsf(i)+fwhm)>high(1) .or. &
              nint(ypsf(i)-fwhm)<low(2) .or. nint(ypsf(i)+fwhm)>high(2)) then
            ! The PSF star is too close to the frame edge.
-	    if (verbose) then
-               print*, '*** WARNING: PSF star',i,'is too close or outside the CCD frame'
-               print*, '             it will be ignored this time.'
-	    end if
+	     if (verbose) then
+               print*, 'WARNING: PSF star',i,'is too close or outside the CCD frame'
+               print*, '         it will be ignored this time.'
+	     end if
            cycle psfstar
          end if
 
@@ -198,7 +198,7 @@
          call gfit(data, .false., dpsf(i), .false., skycnt, skynos, &
          adu, low, high, pix_flg, a_par(:,nfit), e_pos, cflag)
          if (cflag /= 'O') then
-           !print*, 'Fit failed because of flag ', cflag
+           if (debug) print*, '@ Fit failed because of flag ', cflag
            cycle psfstar
          end if
          ! Set the fourth parameter to be the peak signal-to-noise.
@@ -1423,6 +1423,7 @@
            ! write(*,*) i,j,icount,y1(icount),w1(icount)
          end do                                            
        end do
+
        if (sum(w1(1:icount)) < tiny(w1(1))) then
          if (cflag == 'O') cflag='P'
          e_pos=0.0

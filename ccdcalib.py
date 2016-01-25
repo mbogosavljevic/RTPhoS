@@ -12,6 +12,8 @@ checksize     - Makes a list of FITS images with the specified image array shape
 makebias      - Creates a masterbias image
 makedark      - Creates a masterdark image
 makeflat      - Creates a masterflat image
+badmask       - Creates a bad pixel file from a flat field frame
+pixflag       - Flags image pixels depending on their quality
 calib         - Starts the calibration process 
 
 Comments: 
@@ -1203,6 +1205,7 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
           masterflat = flat[1]
           flatmedian = flat[2]          
        if flatcheck:
+          flatmedian = np.median(masterflat)
           masterflat = masterflat/flatmedian
           dataref = dataref/masterflat
           flattxt = "Frame was flat fielded by RTPhoS on " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

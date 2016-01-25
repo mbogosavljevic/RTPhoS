@@ -242,7 +242,7 @@ def barytime(checklist):
 
 
 #############################################################################
-def zach_offsets(dataref,data2red):
+def getoffsets(dataref,data2red):
     
     xshift = 0
     yshift = 0
@@ -310,54 +310,13 @@ def zach_offsets(dataref,data2red):
 
 
 #############################################################################
-def write_optphot_init(rtdefs, imdir, comparisons, targets, thisoffset):
+def run_photometry(rtdefs, dirs, inputfile, origfile, psf_fwhm, thisoffset, \
+                   runpass, alltargets, ntarg, ncomp):
 
-    text_file1 = open(imdir+rtdefs['psfs'], "w")
-    text_file2 = open(imdir+rtdefs['stars'], "w")
-    text_file1.write("!\n!\n!\n")
-    text_file2.write("!\n!\n!\n")
-   
-    xoff = float(thisoffset[0])
-    yoff = float(thisoffset[1])
-
-    nt = len(targets)
-    for i in range(0,nt):
-        x = targets[i][0][0]
-        y = targets[i][0][1]
-        name = targets[i][1]
-
-        # write the targets as first source(s) in stars.cat
-        text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (i+1, x-xoff, y-yoff, name) )
-        #text_file2.write('%-5i %8.1f %8.1f \n' % (i+1, x-xoff, y-yoff))
-
-    nc = len(comparisons)
-    for k in range(0,nc):
-        x = comparisons[k][0][0]
-        y = comparisons[k][0][1]
-        name = comparisons[k][1]
-
-        # write comparisons to PSF coordinates file.
-        text_file1.write('%-5i %8.1f %8.1f %-15s \n' % (k+1, x-xoff, y-yoff, name) )
-        #text_file1.write('%-5i %8.1f %8.1f \n' % (k+1, x-xoff, y-yoff))
-
-        # add comparisons as additional sources to stars coordinates file.
-        text_file2.write('%-5i %8.1f %8.1f %-15s \n' % (k+nt+1, x-xoff, y-yoff, name) )
-        #text_file2.write('%-5i %8.1f %8.1f \n' % (k+nt+1, x-xoff, y-yoff))
-
-    text_file1.close()
-    text_file2.close()
-    print "* Wrote " + str(nc) + " star(s) in " + imdir + rtdefs['psfs']
-    print "* Wrote " + str(nc+nt) + " star(s) in "  + imdir + rtdefs['stars']
-    print
-    return (1)
-
-
-#############################################################################
-def run_photometry(rtdefs, dirs, inputfile, origfile, psf_fwhm):
-
+    # Assign values
     filename   = inputfile+" "
-    psfpos     = rtdefs['psfs']+" "    
-    starpos    = rtdefs['stars']+" "   
+    npsf       = str(ncomp)+" "    
+    nstar      = str(ntarg)+" "   
     badskyskew = rtdefs['skyskew']+" "
     badskychi  = rtdefs['skyfit']+" "
     clip       = rtdefs['cradius']+" "
@@ -371,20 +330,53 @@ def run_photometry(rtdefs, dirs, inputfile, origfile, psf_fwhm):
     dummy = os.path.basename(origfile)
     dummy2 = os.path.splitext(dummy)
     flagfile = dummy2[0]+".flg "
+    
+    if (runpass==2):
+       searchrad = "-1.0 "
+       aprad     = "-1.0 "
 
+    #verbose="Y"    # Uncomment for debuging
+
+    # Apply the frame offset
+    xoff = float(thisoffset[0])
+    yoff = float(thisoffset[1])
+    name=[]
+    xc=[]
+    yc=[]
+    for i in range(0, ntarg+ncomp):
+        xc.append(alltargets[i][0][0]-xoff)
+        yc.append(alltargets[i][0][1]-yoff)
+        name.append(alltargets[i][1])
+
+    # Print X,Y coords for debuging
+    #if (runpass==1):
+    #   for i in range(0, ntarg+ncomp):
+    #       print "X, Y 1st pass: ", i+1, xc[i], yc[i]
+    #else:
+    #   for i in range(0, ntarg+ncomp):
+    #       print "X, Y 2nd pass: ", i+1, xc[i], yc[i]
+
+    # Construct the optimal command line input
     input_txt=[]
-    input_txt.append(filename+flagfile+psfpos+starpos+verbose)
+    input_txt.append(filename+flagfile+npsf+nstar+verbose)
     input_txt.append(badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu)
-
-    print "* Initiating photometry calculations..."
-    print
-    print filename+flagfile+psfpos+starpos+verbose
-    print badskyskew+badskychi+fwhm+clip+aprad+iopt+searchrad+adu
-
+    for i in range(ntarg, ntarg+ncomp):
+        input_txt.append(name[i]+" "+str(xc[i])+" "+str(yc[i]))
+    for i in range(0, ntarg+ncomp):
+        input_txt.append(name[i]+" "+str(xc[i])+" "+str(yc[i]))
+        
+    input_str = "\n".join(input_txt) + "\n"
+    
+    if (runpass==1):
+       print "* Initiating photometry calculations..."
+       print
+       
+    #print input_str
+    #print
+    
     os.chdir(dirs['reduced'])  # Move to the reduced image directory
     p = Popen(["optimal"], stdin=PIPE, stdout=PIPE)
-    data_out = p.communicate(input_txt[0]+"\n"
-                             +input_txt[1]+"\n")[0]
+    data_out = p.communicate(input_str)[0]
  
     if verbose=='Y':
         print " ### OPTIMAL OUTPUT START ###"
@@ -413,23 +405,58 @@ def run_photometry(rtdefs, dirs, inputfile, origfile, psf_fwhm):
     optimal_stars=optimal_res[0]
     seeing = optimal_res[1]
     xypos = optimal_res[2]
-    flags = optimal_res[3]
+    opflags = optimal_res[3]
     
     aperture_res=dict_of_floats(aperture_data, total_stars)
-    aperture_stars=aperture_res[0]
-    seeing = aperture_res[1]
-    xypos = aperture_res[2]
-    flags = aperture_res[3]
+    if (runpass==1):
+       aperture_stars=aperture_res[0]
+       seeing = aperture_res[1]
+       xypos = aperture_res[2]
+       apflags = aperture_res[3]
+    else:
+       aperture_stars = optimal_stars
+       #seeing = " - "
+       #xypos = " - "
+       apflags = opflags
 
-    photometry_result = (optimal_stars, aperture_stars, seeing, xypos, flags)
+    photometry_result = (optimal_stars, aperture_stars, seeing, xypos, opflags, apflags)
 
     os.chdir(dirs['data'])  # Move back to the raw data directory
     return photometry_result
 
 
+
 #############################################################################
-def outputfiles(dirs, alltargets, optimalist, aperatlist, flaglist, seeing, \
-                frame_time, frame_timerr, pdatetime, filename, count):
+def positions(optimalist, xyposlist, initx, inity, ntarg):
+
+    xoffs = []
+    yoffs = []
+
+    # Go around these loops for every entry and every target star
+    for i in range(0,len(optimalist)):
+   
+        tmp_counts = float(optimalist[i][0])
+        tmp_ecounts= float(optimalist[i][1])
+        tmp_xpos   = float(xyposlist[i][0])
+        tmp_ypos   = float(xyposlist[i][1])
+        tmp_sn     = tmp_counts/tmp_ecounts  
+     
+        # Find the x and y offsets from the initial values              
+        if (tmp_ecounts >0.0 or tmp_sn>20.0):
+           dummy = initx[i]-tmp_xpos
+           xoffs.append(dummy)       
+           dummy = inity[i]-tmp_ypos
+           yoffs.append(dummy)
+        
+    # Find the median offset for each frame
+    framepos = (np.median(xoffs), np.median(yoffs))      
+
+    return framepos                     
+
+
+#############################################################################
+def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist, seeing, \
+                frame_time, frame_timerr, pdatetime, filename, count, runpass):
 
     # Move to the reduced files directory
     prev_dir = os.path.abspath(os.curdir)
@@ -437,25 +464,36 @@ def outputfiles(dirs, alltargets, optimalist, aperatlist, flaglist, seeing, \
 
     # Loop will write out files with the following outputformat:
     # seq. number, frame_time, frame_timerr, flux, flux error, seeing
-    for i in range(0,len(alltargets)):
-        # First write the optimal photometry data
-        with open(alltargets[i][1]+".opt", "a") as outfile:
-            outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, optimalist[i][0], \
-                       optimalist[i][1], float(seeing), flaglist[i], filename)
-            fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s \n'
-            outfile.write(fmtstring % outdata)
-#            outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
-#            " "+ str(frame_timerr)+" "+str(optimalist[i][0])+" "+\
-#            str(optimalist[i][1])+" "+str(seeing)+" "+filename+" \n")
-        # Now write the aperture photometry data
-        with open(alltargets[i][1]+".dat", "a") as outfile:
-            outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, aperatlist[i][0], \
-                       aperatlist[i][1], float(seeing), flaglist[i], filename)
-            fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s \n'
-            outfile.write(fmtstring % outdata)
-#            outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
-#            " "+ str(frame_timerr)+" "+str(aperatlist[i][0])+" "+\
-#            str(aperatlist[i][1])+" "+str(seeing)+" "+filename+" \n")
+    if (runpass==1):
+       for i in range(0,len(alltargets)):
+           # First write the optimal photometry data
+           with open(alltargets[i][1]+".opt_tmp", "a") as outfile:
+                outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, optimalist[i][0], \
+                           optimalist[i][1], float(seeing), opflaglist[i], filename)
+                fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s \n'
+                outfile.write(fmtstring % outdata)
+#                outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
+#                " "+ str(frame_timerr)+" "+str(optimalist[i][0])+" "+\
+#                str(optimalist[i][1])+" "+str(seeing)+" "+filename+" \n")
+
+           # Now write the aperture photometry data
+           with open(alltargets[i][1]+".dat", "a") as outfile:
+                outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, aperatlist[i][0], \
+                           aperatlist[i][1], float(seeing), apflaglist[i], filename)
+                fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s \n'
+                outfile.write(fmtstring % outdata)
+#                outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
+#                " "+ str(frame_timerr)+" "+str(aperatlist[i][0])+" "+\
+#                str(aperatlist[i][1])+" "+str(seeing)+" "+filename+" \n")
+
+
+    if (runpass==2):
+       for i in range(0, len(alltargets)):
+           with open(alltargets[i][1]+".opt", "a") as outfile:
+                outdata = (count, frame_time, frame_timerr*86400.0, optimalist[i][0], \
+                           optimalist[i][1], float(seeing), opflaglist[i])
+                fmtstring = '%5i %15.6f %6.2f %12s %9s %6.2f %s \n'
+                outfile.write(fmtstring % outdata)
 
     ### Files are always appended. This might be a problem when running a
     ### new round of rtphos of the same data. Perhaps we should make rtphos
@@ -476,14 +514,25 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
     alltargets = targets + comparisons
     ncomp = len(comparisons)  # number of comparison stars
     ntarg = len(targets)      # number of target stars
+    allobj = ntarg+ncomp      # number of all objects
 
-    goodframes=[]
+    frameslist=[]
+    calib_frameslist = []
+    frame_times = []
+    frame_timerrs = []
+    pdatetimes = []
+    newoffsets= []    
     initx = []
     inity = []
-    compxvals = []
-    compyvals = []
-    newoffsets=[]
-
+    dist_dx = []
+    dist_dy = []
+    all_seeing = []    
+    all_opdata = [[] for x in range(allobj)]
+    all_apdata = [[] for x in range(allobj)]
+    for i in range(0, allobj):
+        all_opdata[i] = [[] for x in range(6)]
+        all_apdata[i] = [[] for x in range(6)]
+    
     # Initialize educed data lists
     xdata=[]         # X-axis data (time)
     yseeing=[]       # Seeing data
@@ -505,6 +554,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
     try:
        while 1:
            print "*LISTENING*", dirs['data'], time.strftime('%X %x %Z')
+           print "Hit Ctrl-C to exit initial photometry loop"
            after = sorted(os.listdir(dirs['data']))
            added = [f for f in after if not f in before]
 
@@ -523,6 +573,9 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        data2, hdr = pyfits.getdata(filename, header=True) 
                        print "* Processing image: "+filename
 
+                       # Count the number of processed frames
+                       count = count + 1 
+                       
                        # Data array used for plotting the current image. 
                        #dataplt = data2  
 
@@ -532,12 +585,10 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        # time will be in Barycentric Dynamical Julian Date. If not 
                        # then time will be in plain simple Julian Date.
                        checklist = ccdcalib.makechecklist(hdr)
-
-                       count = count + 1 
+                       
                        if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":  
                            mdatetime = checklist['DATE']+" "+checklist['TIME']
                            pdatetime = checklist['DATE']+"|"+checklist['TIME']
-                           #print ("HERE",mdatetime)
                            # this is needed to get plot-able UTC time
                            sdatetime = datetime.strptime(mdatetime,  "%Y-%m-%d %H:%M:%S")
                            mdatetime = Time(mdatetime, format='iso', scale='utc')
@@ -551,8 +602,13 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        else:
                            time_BDJD = barytime(checklist)
                            frame_time = float(time_BDJD[1])
+                           frame_times.append(frame_time)
                            #frame_timerr  = format(float(time_BDJD[2]), '.15g')
                            frame_timerr = midexp
+                           
+                       frame_times.append(frame_time)
+                       frame_timerrs.append(frame_timerr)
+                       pdatetimes.append(pdatetime)
 
                        # Strip JD and reduced it to 2 significant figures.
                        stripjd = int(float(frame_time)/100.0)*100.0
@@ -574,52 +630,65 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        calib_data = ccdcalib.calib(rtdefs, dirs, filename, data2, hdr)
                        (data2, hdr, calib_fname) = calib_data
 
-                       # find offsets from dataref
-                       thisoffset = zach_offsets(dataref,data2)
-                       print "* Offsets: (x,y) ", thisoffset
+                       # Find offsets from reference frame (displayed on DS9)
+                       thisoffset = (0,0)
+                       if (count>1): 
+                          thisoffset = getoffsets(dataref,data2)
+                          
+                       print "* Frame Offsets: (x,y) ", thisoffset
 
-                       # create opphot init files
-                       t = write_optphot_init(rtdefs, dirs['reduced'], comparisons, targets, thisoffset)
-                       # call optimal and do the photometry.
-                       frame_photometry = run_photometry(rtdefs, dirs, calib_fname, filename, psf_fwhm)
+                       # Call optimal and do the photometry.
+                       frame_photometry = run_photometry(rtdefs, dirs, calib_fname, filename, \
+                                                         psf_fwhm, thisoffset, 1, alltargets, ntarg, ncomp)
   
-                       # Deconstruct the photometry results from optimal.f90
-                       (optimaldict, aperatdict, seeing, xypos, flags) = frame_photometry
+                       # Deconstruct photometry results from optimal.f90
+                       (optimaldict, aperatdict, seeing, xypos, opflags, apflags) = frame_photometry
                        optimalist = optimaldict.values()
                        aperatlist = aperatdict.values()
                        xyposlist  = xypos.values()
-                       flaglist   = flags.values()
-
-                       # File output (Put the filename in a list)
-                       junk, sfilename = os.path.split(filename)
-                       goodframes.append(sfilename)
-                       outputfiles(dirs, alltargets, optimalist, aperatlist, flaglist, seeing, \
-                                   frame_time, frame_timerr, pdatetime, sfilename, count)
-
-                       # Calculate more accurate offsets based on the optimal 
-                       # photometry results. If optimal results not available
-                       # keep the offsets from image cross-correlation routine.
-                       for i in range(0, ncomp):
-                           compxvals.append(xypos[i+ntarg][0])
-                           compyvals.append(xypos[i+ntarg][1])
-
-                       compxvals = [float(i) for i in compxvals]
-                       compyvals = [float(i) for i in compyvals]
-
-                       if (count==1):
-                          compxoffs=[0.0]
-                          compyoffs=[0.0]
-                          initx = compxvals
-                          inity = compyvals
-                       else:
-                          compxoffs=(np.array(initx)-np.array(compxvals))
-                          compyoffs=(np.array(inity)-np.array(compyvals))
-
-                       frameoffs = (np.mean(compxoffs), np.mean(compyoffs))
-                       newoffsets.append(frameoffs)
-                       compxvals=[]
-                       compyvals=[]
+                       opflaglist = opflags.values()
+                       apflaglist = apflags.values()
                        
+                       # Put the optimal photometry results into one big list of lists
+                       # Each item in the large list corresponds to each target
+                       # The lists in each target list correspond to:
+                       # Counts, Error, X, Y, S/N, Flag
+                       for j in range(0,len(optimalist)):
+                           tmp_cts  = float(optimalist[j][0])
+                           tmp_ects = float(optimalist[j][1])
+                           tmp_sn = tmp_cts/tmp_ects
+                           all_opdata[j][0].append(tmp_cts)
+                           all_opdata[j][1].append(tmp_ects)
+                           all_opdata[j][2].append(float(xyposlist[j][0]))
+                           all_opdata[j][3].append(float(xyposlist[j][1]))
+                           all_opdata[j][4].append(tmp_sn)
+                           all_opdata[j][5].append(opflags[j])
+                      
+                       all_seeing.append(seeing)          
+
+                       # Get better frame offsets based on optimal photometry positions
+                       # and calculate the relative distances
+                       ###### (FOR LATER): If optimal results not available
+                       ######              keep the offsets from image cross-correlation routine.
+                       if (count==1):
+                          for i in range(0,len(optimalist)):
+                              initx.append(float(xyposlist[i][0]))
+                              inity.append(float(xyposlist[i][1]))
+ 
+                       framepos = positions(optimalist, xyposlist, initx, inity, ntarg)
+                       frameoffs = (framepos[0], framepos[1])                           
+                       newoffsets.append(frameoffs)
+                       
+                       
+                       # Put the original and reduced filenames in a list
+                       junk, sfilename = os.path.split(filename)
+                       frameslist.append(filename)
+                       calib_frameslist.append(calib_fname)
+                       
+                       # Write the result to the output files
+                       outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, \
+                       apflaglist, seeing, frame_time, frame_timerr, pdatetime, sfilename, count, 1)
+                      
                        # Text output
                        print "================================================="
                        print "Filename: ", filename
@@ -628,14 +697,13 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        print "Optimal Photometry Results:"
                        for i in range(0,len(optimalist)):
                            print alltargets[i][1], optimalist[i][0], optimalist[i][1], \
-                                 seeing, xyposlist[i][0], xyposlist[i][1], flaglist[i]
+                                 seeing, xyposlist[i][0], xyposlist[i][1], opflaglist[i]
                        print "-------------------------------------------------"
                        print "Aperature Photometry Results:"
                        for i in range(0,len(aperatlist)):
                            print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], \
-                                 seeing, xyposlist[i][0], xyposlist[i][1], flaglist[i]
+                                 seeing, xyposlist[i][0], xyposlist[i][1], apflaglist[i]
                        print
-
 
                        # Fill the data lists
                        xdata.append(twosig_time)
@@ -679,13 +747,118 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
            time.sleep(tsleep)   # Wait for tsleep seconds before repeating
 
     except KeyboardInterrupt:
-       print "Performing second pass for optimal photometry...Please wait!" 
+       print
+       print
+       print "* Performing second pass for optimal photometry..." 
        print
        ###### WORK IN PROGRESS! THIS IS THE PROPER WAY OF RUNNING THE OPTIMAL
-       ###### PHOTOMETRY CODE (READ THE PAPERS!)
+       ###### PHOTOMETRY CODE (READ THE PAPERS!)   
+       
+       # Setup lists for optimal's second pass
+       avdx = []
+       avdy = []
+       comp_initx = []
+       comp_inity = []
+       targ_initx = []
+       targ_inity = []
+       targ_fixed_x = []
+       targ_fixed_y = []
+       deltaxs = [[] for x in range(ntarg)]
+       deltays = [[] for x in range(ntarg)]
+       avdx = [[] for x in range(ntarg)]
+       avdy = [[] for x in range(ntarg)]
+       for i in range(0, ntarg):
+           deltaxs[i] = [[] for x in range(ncomp)]
+           deltays[i] = [[] for x in range(ncomp)]
+
+       # Calculate the average difference in position between each target and 
+       # each comparison star. Since comparison stars are normally bright objects
+       # taking the average distances from all frames provides a more accurate
+       # position for the target stars. Especially useful for faint targets!
+       for i in range(0, ntarg):
+           targ_initx.append(all_opdata[i][2][0])
+           targ_inity.append(all_opdata[i][3][0])
+           dumtects = all_opdata[i][1]
+           dumtargx = all_opdata[i][2]
+           dumtargy = all_opdata[i][3]
+           for j in range(ntarg,allobj):
+               dumcects = all_opdata[j][1]
+               dumcompx = all_opdata[j][2]
+               dumcompy = all_opdata[j][3]
+               dumsn    = all_opdata[j][4]
+               for k in range(0, len(dumtargx)):
+                   # Only get the distance if star is visible and has a good S/N
+                   if (dumtects[k]>0.0 and dumcects[k]>0.0 and dumsn[k]>50.0):
+                      if (k==0):
+                         comp_initx.append(dumcompx[k])
+                         comp_inity.append(dumcompy[k])
+                      dummy = dumtargx[k]-dumcompx[k]
+                      deltaxs[i][j-ntarg].append(dummy)
+                      dummy = dumtargy[k]-dumcompy[k]
+                      deltays[i][j-ntarg].append(dummy)
+                      
+       # Put the calculated distances dx, dy in a list               
+       for i in range(0,ntarg):
+           for j in range(0, ncomp):
+               dummy = deltaxs[i][j]
+               avdx[i].append(np.mean(dummy))
+               dummy = deltays[i][j]
+               avdy[i].append(np.mean(dummy))
+               
+       # Fix the coordinates of the target stars to the more accurate ones
+       # found above.
+       for i in range(0,ntarg):
+           dum_fixed_x =  np.asarray(comp_initx)+np.asarray(avdx[i])  
+           dum_fixed_y =  np.asarray(comp_inity)+np.asarray(avdy[i])
+           targ_fixed_x.append(np.mean(dum_fixed_x))
+           targ_fixed_y.append(np.mean(dum_fixed_y))
+           alltargets[i][0][0] = targ_fixed_x[i]
+           alltargets[i][0][1] = targ_fixed_y[i]
+           
+       # Fix the coordinates of the comparison stars to those found by 
+       # optimal in the first run. The more accurate offsets obtained earlier
+       # assure a more accurate fix than the cross-correlation shift method.    
+       for i in range(ntarg, allobj):
+           alltargets[i][0][0] = all_opdata[i][2][0]
+           alltargets[i][0][1] = all_opdata[i][3][0]
+
+       # Print the new fixed positions
+       print "* Starting frame is: " 
+       print dirs['reduced']+calib_frameslist[0]
+       print
+       print "* Accurate star positions:"
+       for i in range(0, allobj):
+           print alltargets[i][1], alltargets[i][0][0], alltargets[i][0][1]
+           
+       print
+
+       # Call the optimal photometry routine a second time to refine the photometry.
+       for i in range(0, len(frameslist)):
+           print "Processed file ",i+1," out of ", len(frameslist), \
+                 "- Frame Offset: ", "%.4f %.4f" % newoffsets[i]
+           
+           frame_photometry = run_photometry(rtdefs, dirs, calib_frameslist[i], frameslist[i], \
+                                  psf_fwhm, newoffsets[i], 2, alltargets, ntarg, ncomp)
+
+           # Deconstruct photometry results from optimal.f90
+           (optimaldict_2, aperatdict_2, seeing_2, xypos_2, opflags_2, apflags_2) = frame_photometry
+           optimalist_2 = optimaldict_2.values()
+           aperatlist_2 = aperatdict_2.values()
+           xyposlist_2  = xypos_2.values()
+           opflaglist_2 = opflags_2.values()
+           apflaglist_2 = apflags_2.values()
+
+           # Write the result to the output files
+           count=i+1
+           outputfiles(dirs, alltargets, optimalist_2, aperatlist_2, opflaglist_2, \
+           apflaglist_2, seeing_2, frame_times[i], frame_timerrs[i], pdatetimes[i], "  ", count, 2)
+
+       print
+       print "==== RTPhoS END ==== " + time.strftime('%X %x %Z') 
+       print
+       print         
 
     return
-
 
 #############################################################################
 def run_rtphos(rtphosdir, xpapoint, pathdefs):
@@ -799,7 +972,7 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     # not happy at all with DS9 centering so repeating it 20 times
     #for x in range(0, 19):
     #    win.set("regions centroid")
-    #win.set("regions centroid radius 5")
+    #win.set("regions centroid radius 2")
     #win.set("regions centroid iteration 5")
     #win.set("regions centroid")
     # put back the default
@@ -807,11 +980,11 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     #win.set("regions centroid iteration 20")
 
     # save regions file for later
-    win.set("regions -format ds9")
+    win.set("regions format ds9")
     win.set("regions save "+ ref_filename +".reg")
     
     # Get source (target, comparison) lists from regions selected
-    sourcelist = win.get("regions selected") 
+    sourcelist = win.get("regions selected")
     sources    = pyregion.parse(sourcelist)
     n = len(sources)
     print "* Reading target and comparison star lists..."
