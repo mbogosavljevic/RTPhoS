@@ -937,7 +937,7 @@ def badmask(dirs, rtdefs):
             #hwhm = (2.35482*coeff[2])/2.
             xmin = coeff[1]-5.0*abs(coeff[2])
             xmax = coeff[1]+5.0*abs(coeff[2])
-
+            
             # For debugging:
             # Look at the histogram of a specific section of the image.
             # Plot the histogram and best fit. Remember to import matplotlib as plt.
@@ -997,9 +997,9 @@ def pixflag(rtdefs, dirs, filename, image, hdr):
 
     # Get the size of the image array
     sizexy = np.shape(image)
-    sizex = sizexy[0]
-    sizey = sizexy[1]
-
+    sizex = sizexy[1]
+    sizey = sizexy[0]
+    
     # Initialize the array that will hold the pixel flags.
     flags = np.zeros((sizey, sizex))   
 
@@ -1203,7 +1203,10 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
           flat = makeflat(dsize, obsfilter, dirs, rtdefs)
           flatcheck = flat[0]
           masterflat = flat[1]
-          flatmedian = flat[2]          
+          if flatcheck:
+             flatmedian = flat[2] 
+          else: 
+             flatmedian = 1.0         
        if flatcheck:
           flatmedian = np.median(masterflat)
           masterflat = masterflat/flatmedian
@@ -1224,6 +1227,8 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
     # flat field frame and therefore a bad pixel mask could not be created.
     else:
        print "WARNING: A bad pixel mask cannot be created: missing master flat frame!"
+       print
+       
 
     # Update the headers. 
     hdr_out = hdr_data.copy(strip=True)

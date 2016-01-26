@@ -190,7 +190,11 @@ def stripdate(longjd):
 
 
 #############################################################################
-def barytime(checklist):
+def barytime(checklist, dirs):
+
+    # Move to the reduced data directory
+    prev_dir = os.path.abspath(os.curdir)
+    os.chdir(dirs['reduced'])
 
     # Deconstruct the Date string from the DATE Keyword
     date  = checklist['DATE'].split('-')
@@ -230,14 +234,15 @@ def barytime(checklist):
     inputline1 = equin+" "+" "+ra+  " "+dec
     inputline2 = date +" "+" "+time+" "+" "+utcorr+" "+" "+exposure
 
-#    print inputline1
-#    print inputline2
+    #print inputline1
+    #print inputline2
 
     p = Popen(["barycor"], stdin=PIPE, stdout=PIPE)
 
     time_BDJD = p.communicate(inputline1+"\n"
                              +inputline2)[0]
-
+                             
+    os.chdir(prev_dir)
     return time_BDJD
 
 
@@ -439,7 +444,10 @@ def positions(optimalist, xyposlist, initx, inity, ntarg):
         tmp_ecounts= float(optimalist[i][1])
         tmp_xpos   = float(xyposlist[i][0])
         tmp_ypos   = float(xyposlist[i][1])
-        tmp_sn     = tmp_counts/tmp_ecounts  
+        if (tmp_counts<=0.0 or tmp_ecounts<=0.0):
+           tmp_sn = 0.0
+        else:
+           tmp_sn = tmp_counts/tmp_ecounts  
      
         # Find the x and y offsets from the initial values              
         if (tmp_ecounts >0.0 or tmp_sn>20.0):
@@ -586,28 +594,25 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        # then time will be in plain simple Julian Date.
                        checklist = ccdcalib.makechecklist(hdr)
                        
+                       exposure = float(checklist['EXPOSURE'])   # in seconds
+                       midexp = (exposure / 2.0) / 86400.        # in days
+                       mdatetime = checklist['DATE']+" "+checklist['TIME']
+                       pdatetime = checklist['DATE']+"|"+checklist['TIME']
+                       # this is needed to get plot-able UTC time
+                       sdatetime = datetime.strptime(mdatetime,  "%Y-%m-%d %H:%M:%S")
+                       mdatetime = Time(mdatetime, format='iso', scale='utc')
+
                        if checklist['RA']=="Invalid" or checklist['DEC']=="Invalid":  
-                           mdatetime = checklist['DATE']+" "+checklist['TIME']
-                           pdatetime = checklist['DATE']+"|"+checklist['TIME']
-                           # this is needed to get plot-able UTC time
-                           sdatetime = datetime.strptime(mdatetime,  "%Y-%m-%d %H:%M:%S")
-                           mdatetime = Time(mdatetime, format='iso', scale='utc')
-                           time_frame  = mdatetime.jd # in days
-                           exposure = float(checklist['EXPOSURE']) # in seconds
-                           midexp = (exposure / 2.0) / 86400. # in days
-                           # Make frame time the middle of the exposure
-                           # these are now float variables, not string
-                           frame_time = float(time_frame) + midexp
-                           frame_timerr = midexp
+                           frame_time  = mdatetime.jd            # in JD
                        else:
-                           time_BDJD = barytime(checklist)
-                           frame_time = float(time_BDJD[1])
-                           frame_times.append(frame_time)
-                           #frame_timerr  = format(float(time_BDJD[2]), '.15g')
-                           frame_timerr = midexp
-                           
+                           time_BDJD = barytime(checklist, dirs) # in BDJD
+                           time_BDJD = time_BDJD.split()
+                           frame_time = float(time_BDJD[0])
+                       
+                       # Make frame time the middle of the exposure
+                       frame_time = frame_time + midexp 
                        frame_times.append(frame_time)
-                       frame_timerrs.append(frame_timerr)
+                       frame_timerrs.append(midexp)
                        pdatetimes.append(pdatetime)
 
                        # Strip JD and reduced it to 2 significant figures.
@@ -656,7 +661,11 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        for j in range(0,len(optimalist)):
                            tmp_cts  = float(optimalist[j][0])
                            tmp_ects = float(optimalist[j][1])
-                           tmp_sn = tmp_cts/tmp_ects
+                           if (tmp_ects<=0.0 or tmp_cts<=0.0):
+                              tmp_sn = 0.0
+                           else:
+                              tmp_sn = tmp_cts/tmp_ects
+                              
                            all_opdata[j][0].append(tmp_cts)
                            all_opdata[j][1].append(tmp_ects)
                            all_opdata[j][2].append(float(xyposlist[j][0]))
@@ -687,12 +696,12 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        
                        # Write the result to the output files
                        outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, \
-                       apflaglist, seeing, frame_time, frame_timerr, pdatetime, sfilename, count, 1)
+                       apflaglist, seeing, frame_time, midexp, pdatetime, sfilename, count, 1)
                       
                        # Text output
                        print "================================================="
                        print "Filename: ", filename
-                       print "Frame time           : ", frame_time, frame_timerr
+                       print "Frame time           : ", frame_time, midexp
                        print "Refined frame offsets: ", "%.4f %.4f" % frameoffs
                        print "Optimal Photometry Results:"
                        for i in range(0,len(optimalist)):
@@ -941,6 +950,8 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     call(['ln', '-s', rtphosdir+'/Timing/jpleph.dat', 'JPLEPH'])
     call(['ln', '-s', rtphosdir+'/Timing/leap.dat', 'leapdat'])
     os.chdir(data_dir) # Move back to the data directory
+    print
+    print 'ln', '-s', rtphosdir+'/Timing/jpleph.dat', 'JPLEPH'
     print
 
     # Convert verbose switch value to a string
