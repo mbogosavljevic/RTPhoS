@@ -486,9 +486,11 @@ def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist
 
            # Now write the aperture photometry data
            with open(alltargets[i][1]+".dat", "a") as outfile:
-                outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, aperatlist[i][0], \
-                           aperatlist[i][1], float(seeing), apflaglist[i], filename)
-                fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s \n'
+                outdata = (count, aperatlist[i][0], aperatlist[i][1])
+                #outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, aperatlist[i][0], \
+                #           aperatlist[i][1], float(seeing), apflaglist[i], filename)
+                #fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s \n'
+                fmtstring = '%5i %12s %9s \n'
                 outfile.write(fmtstring % outdata)
 #                outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
 #                " "+ str(frame_timerr)+" "+str(aperatlist[i][0])+" "+\
@@ -498,9 +500,11 @@ def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist
     if (runpass==2):
        for i in range(0, len(alltargets)):
            with open(alltargets[i][1]+".opt", "a") as outfile:
-                outdata = (count, frame_time, frame_timerr*86400.0, optimalist[i][0], \
-                           optimalist[i][1], float(seeing), opflaglist[i])
-                fmtstring = '%5i %15.6f %6.2f %12s %9s %6.2f %s \n'
+                outdata = (count, optimalist[i][0], optimalist[i][1])
+                #outdata = (count, frame_time, frame_timerr*86400.0, optimalist[i][0], \
+                #           optimalist[i][1], float(seeing), opflaglist[i])
+                #fmtstring = '%5i %15.6f %6.2f %12s %9s %6.2f %s \n'
+                fmtstring = '%5i %12s %9s \n'
                 outfile.write(fmtstring % outdata)
 
     ### Files are always appended. This might be a problem when running a
@@ -798,7 +802,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                for k in range(0, len(dumtargx)):
                    # Only get the distance if star is visible and has a good S/N
                    if (dumtects[k]>0.0 and dumcects[k]>0.0 and dumsn[k]>50.0):
-                      if (k==0):
+                      if (i==0 and k==0):
                          comp_initx.append(dumcompx[k])
                          comp_inity.append(dumcompy[k])
                       dummy = dumtargx[k]-dumcompx[k]

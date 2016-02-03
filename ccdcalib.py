@@ -985,6 +985,8 @@ def pixflag(rtdefs, dirs, filename, image, hdr):
     print "----------------------------------------------------------------"
     print "* Creating pixel flags for file:", filename[0]
 
+
+
     # Make sure we are in the 'reduced' directory
     prev_dir = os.path.abspath(os.curdir)
     os.chdir(dirs['reduced'])
@@ -1001,7 +1003,13 @@ def pixflag(rtdefs, dirs, filename, image, hdr):
     sizey = sizexy[0]
     
     # Initialize the array that will hold the pixel flags.
-    flags = np.zeros((sizey, sizex))   
+    # Write the pixel flags to file
+    flags = np.zeros((sizey, sizex))
+    hdr_out = hdr.copy(strip=True)
+    #writefits(flags, hdr_out, filename[0]+'.flg')
+    #os.chdir(prev_dir)
+    #return
+   
 
     # Load bad pixel map.
     if os.path.isfile(dirs['reduced']+'masterbad.fits'): # ****HARD CODED FILE NAME!
@@ -1130,8 +1138,8 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
 
     # If all keywords exist assume that the frame is calibrated and return to 
     # the main program.
-    if biascor and darkcor and flatcor == True:
-       return
+    #if biascor and darkcor and flatcor == True:
+    #   return
 
     # Do the calibration according to which part is missing. The calibration assumes
     # that the calibration frames masterbias, masterdark and masterflat have already

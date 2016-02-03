@@ -439,7 +439,7 @@ program optimal_phot
                ! We now have a better estimate of fwhm, so use this instead.
                fwhm=1.665*sqrt(shape_par(1)*shape_par(2))
                seeing(fnum)=fwhm ! Save the estimate of the seeing to an array.
-               cliprad = clip_fwhm*1.665*sqrt(shape_par(1)*shape_par(2))  
+               cliprad = clip_fwhm*1.665*sqrt(shape_par(1)*shape_par(2)) 
                !cliprad = 3.0*fwhm            
                
     	       if (verbose) then
