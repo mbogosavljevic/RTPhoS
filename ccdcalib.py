@@ -14,7 +14,7 @@
 #
 ################################################################################
 
-This Python module contais the following functions:
+Included functions:
 
 gauss         - Computes a Gaussian profile for given parameters
 makechecklist - Makes dictionary of selected FITS header keywords
@@ -53,6 +53,7 @@ bad pixels.
 
 """
 
+# Initial imports
 import astropy.io.fits as pyfits
 import glob
 import numpy as np
@@ -1250,7 +1251,6 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
        print "WARNING: A bad pixel mask cannot be created: missing master flat frame!"
        print
        
-
     # Update the headers. 
     hdr_out = hdr_data.copy(strip=True)
     if biascheck: hdr_out['BIASCOR'] = (biastxt)          
@@ -1260,10 +1260,6 @@ def calib(rtdefs, dirs, ref_filename, dataref, hdr_data):
 #    if biascheck or darkcheck or flatcheck: 
     writefits(dataref, hdr_out, dirs['reduced']+fileout)
 #    else:
-
-    # write the output png file also
-    # hardcoded rebin factor 4 here, TBD later
-    make_png(dirs, ref_filename, dataref, 4)
 
     result = (dataref, hdr_out, fileout)
 

@@ -18,7 +18,7 @@ aperture and optimal photometry on targets chosen in a DS9 window....
 <more description info and basic manual to go here...>
 
 
-Included funtions:
+Included functions:
  
 dict of floats - Gets a list of string values and makes a python dictionary
 make_png       - Converts FITS images to .png images using f2n.py
@@ -63,7 +63,7 @@ import sys
 
 # NOTE: where else can we put this?
 #sys.path.append("~/pythoncode/f2n/f2n") # The directory that contains f2n.py and f2n_fonts !
-
+#===============================================================================
 ##############################################################################
 def dict_of_floats(list_of_strings, num_items):
     dict_of_floats={}
@@ -86,11 +86,9 @@ def dict_of_floats(list_of_strings, num_items):
 
 
 ##############################################################################
-def make_png(dirs, ref_filename, data, rbin):
+def make_png(png_image_name, frame_name, data, rbin):
 # requires f2n installed
 
-    frame_name = os.path.splitext(os.path.basename(ref_filename))[0]
-    png_image_name = dirs['png'] + frame_name + ".png"
     png_image = f2n.f2nimage(numpyarray=data)  # give the image data to f2n class
     png_image.setzscale("flat","flat")  # works best to my liking
     png_image.rebin(rbin)
@@ -546,7 +544,6 @@ def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist
 
 #############################################################################
 def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
-# requires zach_offsets, write_optphot_init
     
     # Combine targets and comparison star initial data (position, names, etc)
     alltargets = targets + comparisons
@@ -571,7 +568,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
         all_opdata[i] = [[] for x in range(6)]
         all_apdata[i] = [[] for x in range(6)]
     
-    # Initialize educed data lists
+    # Initialize reduced data lists
     xdata=[]         # X-axis data (time)
     yseeing=[]       # Seeing data
     yrawtarget=[]    # Raw target counts
@@ -610,9 +607,23 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        # Can load both data and header with this trick
                        data2, hdr = pyfits.getdata(filename, header=True) 
                        print "* Processing image: "+filename
-
+                       junk, sfilename = os.path.split(filename)
+                       
                        # Count the number of processed frames
                        count = count + 1 
+                       
+                       # Convert FITS into PNG to be used later to make
+                       # a movie of the timeseries. 
+                       # *** Maybe a good idea to do this after calibration but
+                       # for now keeping it before. 
+                       frame_name = os.path.splitext(os.path.basename(sfilename))[0]
+                       png_image_name = dirs['png'] + frame_name + ".png"
+                       #print sfilename
+                       #print png_image_name
+                       if not os.path.isfile(png_image_name):
+                          print "File does not exist"
+                          # hardcoded rebin factor 2 here, TBD later
+                          make_png(png_image_name, sfilename, dataref, 2)
                        
                        # Data array used for plotting the current image. 
                        #dataplt = data2  
@@ -648,7 +659,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        # Strip JD and reduced it to 2 significant figures.
                        stripjd = int(float(frame_time)/100.0)*100.0
                        twosig_time =  float(frame_time) - stripjd
-
+                       
                        # Now initiate the calibration, offsets and photometry.
                        # First map all the saturated and non linear pixels of the
                        # current image. Then combine with the bad pixel mask to 
@@ -717,7 +728,6 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        framepos = positions(optimalist, xyposlist, initx, inity, ntarg)
                        frameoffs = (framepos[0], framepos[1])                           
                        newoffsets.append(frameoffs)
-                       
                        
                        # Put the original and reduced filenames in a list
                        junk, sfilename = os.path.split(filename)
