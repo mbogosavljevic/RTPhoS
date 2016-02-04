@@ -1,20 +1,45 @@
 #!/usr/bin/python
-# M. Bogosavljevic, AOB, May 2015
-### WORK IN PROGRESS!!!! ###
-### Contains 
-### gauss : just a gaussian function definition for PSF fitting
-### fwhm_from_star : fit the gauss and returns FWM (in pixels)
-### get_comps_fwhm : do the above fit for a number of comparison stars,
-###                  returns average (in pixels)
-### run_rtphos : connects to ds9 via xpapoint, gets regions
-###              figures out comparisons and targets
-### seekfits:
-# run_rtphos.ans needs some improvement so that the text output goes to terminal in real time
-#RUN RTPHOS
-#*
-#menu
-#run_rtphos.py $xpa_method rtphos.defaults
 
+"""
+####################### Real-Time Photometry Server ############################
+
+For information please contact:
+
+Dr. Milan Bogosavljevic            |  Dr. Zach Ioannou
+Astronomical Observatory Belgrade  |  Department of Physics
+Belgrade, Serbia                   |  Sultan Qaboos University
+                                   |  Muscat, Oman
+milan@aob.rs                       |  zac@squ.edu.om
+
+################################################################################
+
+This python script monitors a directory for incoming images and performs
+aperture and optimal photometry on targets chosen in a DS9 window....
+<more description info and basic manual to go here...>
+
+
+Included funtions:
+ 
+dict of floats - Gets a list of string values and makes a python dictionary
+make_png       - Converts FITS images to .png images using f2n.py
+gauss          - Computes a Gaussian profile for given parameters
+fwhm_from_star - Calculates the FWHM of a stellar profile
+get_comps_fwhm - Calculates a mean FWHM based on the number of comparison stars
+stripdate      - Removes significant figures from a JD type date number
+barytime       - Calculates Barycentric Dynamical Julian Date using barycor.f90
+getoffsets     - Uses cross-corellation to calculate frame to frame offsets
+run_photometry - Performs photometry by calling optimal.f90
+positions      - Gets improved offsets by averaging offsets from each star
+outputfiles    - Writes output to files
+seekfits       - Performs all the necessary calibration and photometry steps
+run_rtphos     - Initiates the enviroment variables and starts the sequence
+main           - Main program start
+
+Runs with: run_rtphos.py <xpa handle> rtphos.defaults
+
+"""
+
+# Initial imports
 import pyregion
 import astropy.io.fits as pyfits
 from   astropy.time import Time
@@ -29,6 +54,7 @@ from   scipy import signal, ndimage
 from   subprocess import call, Popen, PIPE
 import f2n
 import sys
+
 #import matplotlib.pyplot as plt
 #from matplotlib.colors import LogNorm
 #from matplotlib import rcParams
@@ -463,7 +489,7 @@ def positions(optimalist, xyposlist, initx, inity, ntarg):
 
 
 #############################################################################
-def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist, seeing, \
+def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist, xyposlist, seeing, \
                 frame_time, frame_timerr, pdatetime, filename, count, runpass):
 
     # Move to the reduced files directory
@@ -486,11 +512,11 @@ def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist
 
            # Now write the aperture photometry data
            with open(alltargets[i][1]+".dat", "a") as outfile:
-                outdata = (count, aperatlist[i][0], aperatlist[i][1])
+                outdata = (count, aperatlist[i][0], aperatlist[i][1], xyposlist[i][0], xyposlist[i][1])
                 #outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, aperatlist[i][0], \
                 #           aperatlist[i][1], float(seeing), apflaglist[i], filename)
                 #fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s \n'
-                fmtstring = '%5i %12s %9s \n'
+                fmtstring = '%5i %12s %9s %7s %7s \n'
                 outfile.write(fmtstring % outdata)
 #                outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
 #                " "+ str(frame_timerr)+" "+str(aperatlist[i][0])+" "+\
@@ -500,11 +526,11 @@ def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist
     if (runpass==2):
        for i in range(0, len(alltargets)):
            with open(alltargets[i][1]+".opt", "a") as outfile:
-                outdata = (count, optimalist[i][0], optimalist[i][1])
+                outdata = (count, optimalist[i][0], optimalist[i][1], xyposlist[i][0], xyposlist[i][1] )
                 #outdata = (count, frame_time, frame_timerr*86400.0, optimalist[i][0], \
                 #           optimalist[i][1], float(seeing), opflaglist[i])
                 #fmtstring = '%5i %15.6f %6.2f %12s %9s %6.2f %s \n'
-                fmtstring = '%5i %12s %9s \n'
+                fmtstring = '%5i %12s %9s %7s %7s \n'
                 outfile.write(fmtstring % outdata)
 
     ### Files are always appended. This might be a problem when running a
@@ -700,7 +726,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        
                        # Write the result to the output files
                        outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, \
-                       apflaglist, seeing, frame_time, midexp, pdatetime, sfilename, count, 1)
+                       apflaglist, xyposlist, seeing, frame_time, midexp, pdatetime, sfilename, count, 1)
                       
                        # Text output
                        print "================================================="
@@ -864,7 +890,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
            # Write the result to the output files
            count=i+1
            outputfiles(dirs, alltargets, optimalist_2, aperatlist_2, opflaglist_2, \
-           apflaglist_2, seeing_2, frame_times[i], frame_timerrs[i], pdatetimes[i], "  ", count, 2)
+           apflaglist_2, xyposlist_2, seeing_2, frame_times[i], frame_timerrs[i], pdatetimes[i], "  ", count, 2)
 
        print
        print "==== RTPhoS END ==== " + time.strftime('%X %x %Z') 

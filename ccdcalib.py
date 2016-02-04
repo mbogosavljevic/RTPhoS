@@ -1,9 +1,22 @@
 #!/usr/bin/python
-#
 
 """
+####################### Real-Time Photometry Server ############################
+#                          Calibration Routines
+#
+# For information please contact:
+#
+# Dr. Milan Bogosavljevic            |  Dr. Zach Ioannou
+# Astronomical Observatory Belgrade  |  Department of Physics
+# Belgrade, Serbia                   |  Sultan Qaboos University
+#                                    |  Muscat, Oman
+# milan@aob.rs                       |  zac@squ.edu.om
+#
+################################################################################
+
 This Python module contais the following functions:
 
+gauss         - Computes a Gaussian profile for given parameters
 makechecklist - Makes dictionary of selected FITS header keywords
 writefits     - Writes a FITS file to disk       
 mediancomb    - Median combines 2-D FITS file images read from a filelist
@@ -14,7 +27,7 @@ makedark      - Creates a masterdark image
 makeflat      - Creates a masterflat image
 badmask       - Creates a bad pixel file from a flat field frame
 pixflag       - Flags image pixels depending on their quality
-calib         - Starts the calibration process 
+calib         - Initiates the calibration process 
 
 Comments: 
 ========
