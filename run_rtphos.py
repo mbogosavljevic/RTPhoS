@@ -621,7 +621,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        #print sfilename
                        #print png_image_name
                        if not os.path.isfile(png_image_name):
-                          print "File does not exist"
+                          print "PNG file of this frame does not exist (yet)"
                           # hardcoded rebin factor 2 here, TBD later
                           make_png(png_image_name, sfilename, dataref, 2)
                        
