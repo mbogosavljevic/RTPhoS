@@ -3,7 +3,7 @@
 # and broadcasts new data as it arrives over TCP/IP using ZeroMQ
 
 # Usage:
-# RTPhoS_pub_server.py [port] [obsid] [band] [targetfile] [tsleep] 
+# RTPhoS_server_module.py [port] [obsid] [band] [targetfile] [tsleep] 
 # {plus optional params and switches, do -h or --help to get options}
 
 import os
