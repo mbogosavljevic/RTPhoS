@@ -1,35 +1,27 @@
 #!/usr/bin/env python
 # RTPhoS server module which watches output photometry files
-# and broadcasts new data over TCP/IP using ZeroMQ
+# and broadcasts new data as it arrives over TCP/IP using ZeroMQ
 
 # Usage:
 # RTPhoS_pub_server.py [port] [obsid] [band] [targetfile] [tsleep] 
-# {plus optional params and switches}
+# {plus optional params and switches, do -h or --help to get options}
 
+import os
+import sys
 import argparse
 import zmq
-import sys
 import time
-import os
-from astropy.io import fits
-import json
-import numpy as np
-from collections import OrderedDict
 from datetime import datetime
+import numpy as np
+from astropy.io import fits
+import numpy as np
+import json
+from collections import OrderedDict
 
 #########################################################################################
-
-def minutes_before_now(sometime):
-# check how many minutes sincce time of data taken (assuming UTC)
-#  expects sometime as 1990-01-01|00:00:00
-    now = datetime.utcnow()
-    sometime2 = datetime.strptime(sometime, "%Y-%m-%d|%H:%M:%S")
-    elapsedTime = sometime2 - now
-    minutes = elapsedTime.total_seconds() / 60.
-    return minutes
-
-#########################################################################################
-
+# file_len
+# Returns the actual number of lines in a text file
+# do not have lines with just whitespace!
 def file_len(fname):
     with open(fname) as f:
         for i, l in enumerate(f):
@@ -37,46 +29,50 @@ def file_len(fname):
     return i + 1
 
 #########################################################################################
+# datatext_to_message
+# Parses the chosen line of the text file and returns a dictionary
+# the convention for nline is that lines are numbered from 1 to file_len(textfile)
+# Used to read target data or comparison star data files with the format as:
+#   No.    UTCdatetime       BJD            terr[s]  Flux       Flux_err    seeing flag  filename
+#    1  1990-01-01|00:00:00  2447892.500058   5.00   33368.6875 647.047546   5.46   O     gauss01.fits 
+def datatext_to_message(textfile, nline):
 
-def datatext_to_message(textfile, lastlineread, firsttime):
-# Used to read data or comparison star data files with the format as:
-#   No.    Date                BJD           time_err  Flux     Flux_err    seeing flag  filename
-#    1  1990-01-01|00:00:00  2447892.500058   5.00   33368.6875 647.047546   5.46 O gauss01.fits 
     with open(textfile,'r') as fp:
-         i = -1
-         if firsttime:
-             for line in fp:
+         i = 1
+         for line in fp:
+             if i == nline:
+                 useline = line
+                 break
+             else:
                  i = i + 1
-                 save_i = i
-             useline = line
-             print useline
-         else:
-             for line in fp:
-                 i = i + 1
-                 if i == lastlineread:
-                     useline = line
-                     save_i = i
 
-         last = useline
-         line = last.strip()   
-         print "Here:", line
-         columns = line.split()
-         thisentry         = columns[0]
+         useline = useline.strip()   
+         columns = useline.split()
+         thisentry    = columns[0]
          UTCdatetime  = columns[1]
-         diffminutes  = minutes_before_now(UTCdatetime)
-         BJD       = columns[2] 
-         flux      = columns[4]
-         fluxerr   = columns[5]
-         seeing    = columns[6]
+         BJD          = columns[2] 
+         flux         = columns[4]
+         fluxerr      = columns[5]
+         seeing       = columns[6]
 
          # create a dictionary
-         part_message = {"lastread":save_i, "dUTCminutes":diffminutes, "BJD":BJD, \
+         part_message = {"linenumber":i, "UTCdatetime":UTCdatetime, "BJD":BJD, \
                                 "flux":flux, "fluxerr":fluxerr, "seeing":seeing} 
          return part_message
 
 #########################################################################################
+# format_and_broadcast
+# Using the command line arguments in args, 
+# check what parts of the message should be sent, read the given line of datafiles, 
+# create json message and broadcast.
+# For example, checks if thumbnails of the target and comparison exist and reads them in
+# otherwise, it will broadcast NaN for the above
+# checks if the comparison star data exists, etc.
+# uses the datatext_to_message function defined above
 
-def do_the_work(args,t_part_message,row,firsttime):
+def format_and_broadcast(args, t_part_message, nline):
+
+    compdone = False
     if args.thumbtarget is not None:
         print "Reading target fits file: %s" % args.thumbtarget
         hdulist1 = fits.open(args.thumbtarget)
@@ -85,7 +81,8 @@ def do_the_work(args,t_part_message,row,firsttime):
     else:
         timage_list = np.array(float('NaN')).tolist()
         if args.compfile is not None:
-            c_part_message = datatext_to_message(args.compfile, row, firsttime)
+            c_part_message = datatext_to_message(args.compfile, nline)
+            compdone = True
         if args.thumbcomp is not None:
             print "Reading comp fits file: %s" % args.thumbcomp
             hdulist2 = fits.open(args.thumbcomp)
@@ -93,47 +90,40 @@ def do_the_work(args,t_part_message,row,firsttime):
         else:
             cimage_list = np.array(float('NaN')).tolist()
 
-    dUTCminutes =  t_part_message['dUTCminutes']
+    UTCdatetime =  t_part_message['UTCdatetime']
     BJD = t_part_message['BJD']
-    targetflux = t_part_message['flux']
-    targetfluxerr = t_part_message['fluxerr']
+    if args.public:
+        targetflux = t_part_message['flux']
+        targetfluxerr = t_part_message['fluxerr']
+    else:
+        targetflux = float('NaN')
+        # make target flux error a percentage in this case
+        targetfluxerr = float(t_part_message['fluxerr']) / float(t_part_message['flux']) * 100.
+
     seeing = t_part_message['seeing']
 
-    print "-----------------------------"
-    print "Read data entry:", t_part_message['lastread']+1
-    print "bandpass", args.band
-    print "obsid", args.obsid
-    print "port", args.port
-    print "dUTCminutes", dUTCminutes
-    print "BJD", BJD
-    print "targetflux", targetflux
-    print "targetfluxerr", targetfluxerr
-    print "seeing", seeing
     if compdone:
         compflux = c_part_message['flux']
         compfluxerr = c_part_message['fluxerr']
-        print "compflux", compflux
-        print "compfluxerr", compfluxerr
     else:
         compflux = float('NaN')
         compfluxerr = float('NaN')
-
     
     # create an ordered dictionary
     message = OrderedDict ( [("bandpass", args.band), ("obsid", args.obsid),  ("port", args.port), \
-                  ("dUTCminutes", dUTCminutes), ("BJD",BJD), ("targetflux", targetflux), \
-                  ("targetfluxerr", targetfluxerr), ("compflux", compflux), \
-                  ("compfluxerr", compfluxerr), ("seeing", seeing), \
-                  ("thumbnail1",timage_list), ("thumbnail2",cimage_list)] )
+                             ("UTCdatetime", UTCdatetime), ("BJD",BJD), ("targetflux", targetflux), \
+                             ("targetfluxerr", targetfluxerr), ("compflux", compflux), \
+                             ("compfluxerr", compfluxerr), ("seeing", seeing), \
+                             ("thumbnail1",timage_list), ("thumbnail2",cimage_list)] )
  
-    # convert to json message 
+    # convert to json message and broadcast 
     jsonmessage = json.dumps(message)
     socket.send(jsonmessage)
     print jsonmessage
    
 ##########################################################
-# MAIN ###################################################
-#########################################################
+### MAIN CODE ###
+##########################################################
 
 # parse the arguments from the command line
 parser = argparse.ArgumentParser(description='RTPhoS live data broadcasting module')
@@ -150,7 +140,7 @@ parser.add_argument('targetfile', metavar='targetfile', type=str, \
 parser.add_argument('tsleep', metavar='tsleep', type=float, \
                     help='Sleep time between checks of target data file')
 
-# boolean switch
+# boolean switch: set it in order to broadcast the fluxes, otherwise they will be private
 parser.add_argument('-public', action='store_true', \
                     help='Set this switch to broadcast the target flux. Default FALSE')
 # optional
@@ -172,37 +162,43 @@ socket = context.socket(zmq.PUB)
 socket.bind("tcp://*:%s" % args.port)
 
 lastdatafiletime = 0
-lastdataentry = -1
+nline = 1
 firsttime = True 
 
+
+## main loop ##
 try:
   while True:
       # check if input data file has been modified
       datafiletime = os.stat(args.targetfile).st_mtime
-      compdone = False
       if datafiletime != lastdatafiletime:
-          # update time when update noted
+          # update time of last file update
           lastdatafiletime = datafiletime
           # check the new length of the file 
           filelen = file_len(args.targetfile)
-          print "I see the file already has", filelen, " lines"
-          # read the just last line if it is the first time
-          # otherwise, read all lines that are new
+          print "File has", filelen
           if firsttime:
-              print lastdataentry
-              t_part_message = datatext_to_message(args.targetfile, lastdataentry, firsttime)
-              do_the_work(args,t_part_message,lastdataentry,firsttime)
-              lastdataentry = t_part_message['lastread']
+              # read the just last line if it is the first time
+              # otherwise, read all lines that are new since last visit
+              print "RTPhoS: the input file has", filelen, " existing lines"
+              nline = filelen
+              t_part_message = datatext_to_message(args.targetfile, nline)
+              format_and_broadcast(args,t_part_message,nline)
               firsttime = False
+              # move counter to next line for next read
+              nline = nline + 1
           else:
-              for row in range(lastdataentry,filelen):
-                  t_part_message = datatext_to_message(args.targetfile, row, firsttime)
-                  do_the_work(args,t_part_message,row,firsttime)
-              lastdataentry = t_part_message['lastread']+2
+              if nline <= filelen:
+                  for row in range(nline,filelen+1):
+                      t_part_message = datatext_to_message(args.targetfile, row)
+                      format_and_broadcast(args,t_part_message,row)
+                      # set nline to one line more for next read
+                      nline = row + 1                  
       else: 
           # Sleep before attempting to parse input data file(s) again
           time.sleep(args.tsleep)
-          print "Checking again...", datetime.now()
+          now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+          print "RTPhoS: Checking input files again...", now
 
 except (KeyboardInterrupt, SystemExit):
   print "Process aborted by user."
