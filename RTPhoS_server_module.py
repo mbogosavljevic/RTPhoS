@@ -70,7 +70,9 @@ def datatext_to_message(textfile, nline):
 # checks if the comparison star data exists, etc.
 # uses the datatext_to_message function defined above
 
-def format_and_broadcast(args, t_part_message, nline):
+def format_for_broadcast(args, t_part_message, nline):
+# nline here serves only to find the same line in comparison star data file
+# if that is the preference set 
 
     compdone = False
     if args.thumbtarget is not None:
@@ -79,7 +81,7 @@ def format_and_broadcast(args, t_part_message, nline):
         timage = hdulist1[0].data
         timage_list = timage.tolist()
     else:
-        timage_list = np.array(float('NaN')).tolist()
+        timage_list = 'NaN'
         if args.compfile is not None:
             c_part_message = datatext_to_message(args.compfile, nline)
             compdone = True
@@ -88,7 +90,7 @@ def format_and_broadcast(args, t_part_message, nline):
             hdulist2 = fits.open(args.thumbcomp)
             cimage = hdulist2[0].data
         else:
-            cimage_list = np.array(float('NaN')).tolist()
+            cimage_list = 'NaN'
 
     UTCdatetime =  t_part_message['UTCdatetime']
     BJD = t_part_message['BJD']
@@ -96,7 +98,7 @@ def format_and_broadcast(args, t_part_message, nline):
         targetflux = t_part_message['flux']
         targetfluxerr = t_part_message['fluxerr']
     else:
-        targetflux = float('NaN')
+        targetflux = 'NaN'
         # make target flux error a percentage in this case
         targetfluxerr = float(t_part_message['fluxerr']) / float(t_part_message['flux']) * 100.
 
@@ -106,21 +108,22 @@ def format_and_broadcast(args, t_part_message, nline):
         compflux = c_part_message['flux']
         compfluxerr = c_part_message['fluxerr']
     else:
-        compflux = float('NaN')
-        compfluxerr = float('NaN')
-    
+        compflux = 'NaN'
+        compfluxerr = 'NaN'
+
+    sendtimeUTC = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     # create an ordered dictionary
-    message = OrderedDict ( [("bandpass", args.band), ("obsid", args.obsid),  ("port", args.port), \
+    message = OrderedDict ( [("bandpass", args.band), ("sendtimeUTC", sendtimeUTC), ("obsid", args.obsid), \
+                             ("port", args.port), \
                              ("UTCdatetime", UTCdatetime), ("BJD",BJD), ("targetflux", targetflux), \
                              ("targetfluxerr", targetfluxerr), ("compflux", compflux), \
                              ("compfluxerr", compfluxerr), ("seeing", seeing), \
-                             ("thumbnail1",timage_list), ("thumbnail2",cimage_list)] )
+                             ("thumbnail1", timage_list), ("thumbnail2", cimage_list)] )
  
     # convert to json message and broadcast 
     jsonmessage = json.dumps(message)
-    socket.send(jsonmessage)
-    print jsonmessage
-   
+    return jsonmessage
+
 ##########################################################
 ### MAIN CODE ###
 ##########################################################
@@ -129,7 +132,7 @@ def format_and_broadcast(args, t_part_message, nline):
 parser = argparse.ArgumentParser(description='RTPhoS live data broadcasting module')
 
 # required params
-parser.add_argument('port', metavar='port', type=int, \
+parser.add_argument('port', metavar='port', type=str, \
                     help='TCP/IP port to be used for the broadcast')
 parser.add_argument('obsid', metavar='obsid', type=str, \
                     help='Observatory ID string to be used')
@@ -157,14 +160,14 @@ parser.set_defaults(path='./')
 args = parser.parse_args()
 
 # connect to a publishing port
+port = int(args.port)
 context = zmq.Context()
 socket = context.socket(zmq.PUB)
-socket.bind("tcp://*:%s" % args.port)
+socket.bind("tcp://*:%s" % port)
 
 lastdatafiletime = 0
 nline = 1
 firsttime = True 
-
 
 ## main loop ##
 try:
@@ -183,7 +186,10 @@ try:
               print "RTPhoS: the input file has", filelen, " existing lines"
               nline = filelen
               t_part_message = datatext_to_message(args.targetfile, nline)
-              format_and_broadcast(args,t_part_message,nline)
+              jsonmessage = format_for_broadcast(args,t_part_message,nline)
+              socket.send(jsonmessage)
+              print "RTPhoS: Message sent ", datetime.now()
+              print jsonmessage
               firsttime = False
               # move counter to next line for next read
               nline = nline + 1
@@ -191,7 +197,11 @@ try:
               if nline <= filelen:
                   for row in range(nline,filelen+1):
                       t_part_message = datatext_to_message(args.targetfile, row)
-                      format_and_broadcast(args,t_part_message,row)
+                      jsonmessage = format_for_broadcast(args,t_part_message,row)
+                      socket.send(jsonmessage)
+                      now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                      print "RTPhoS: Message sent ", now
+                      print jsonmessage
                       # set nline to one line more for next read
                       nline = row + 1                  
       else: 
@@ -199,7 +209,6 @@ try:
           time.sleep(args.tsleep)
           now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
           print "RTPhoS: Checking input files again...", now
-
 except (KeyboardInterrupt, SystemExit):
   print "Process aborted by user."
   pass
