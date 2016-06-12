@@ -29,14 +29,26 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import LogNorm
 from matplotlib import rcParams
 
+####################
+# minutes_before_now
 def minutes_before_now(sometime):
 # check how many minutes sincce time of data taken (assuming UTC)
 #  expects sometime as 1990-01-01|00:00:00.00
     now = datetime.utcnow()
-    sometime2 = datetime.strptime(sometime, "%Y-%m-%d|%H:%M:%S.%f")
+    sometime2 = datetime.strptime(sometime, "%Y-%m-%d|%H:%M:%S")
     elapsedTime = sometime2 - now
     minutes = elapsedTime.total_seconds() / 60.
     return minutes
+
+#################
+# file_len
+# Returns the actual number of lines in a text file
+# do not have lines with just whitespace!
+def file_len(fname):
+    with open(fname) as f:
+        for i, l in enumerate(f):
+            pass
+    return i + 1
 
 
 ##########################################################
@@ -74,15 +86,15 @@ args = parser.parse_args()
 ################
 
 if args.logfile is not None:
+    uselog = True
     if args.port is not None:
       print "!RTPhoS: you have specified both port and logfile to monitor!"
       print "This is not possible. Continuing with using the logfile."
-      uselog = True
 else:
     uselog = False
     if args.port is None: 
         print "Set -port or -logfile!"
-        break
+
 
 # bandpass filter must be at the beginning of the messages sent
 if args.filter is not None:
@@ -90,7 +102,7 @@ if args.filter is not None:
     bandpass_filter = "{\"bandpass\": \"" + args.filter
 else:
     print "-filter option not set!"
-    break
+
 
 bandpass_filter = "{\"bandpass\": \"" + args.filter
 
@@ -116,46 +128,48 @@ if uselog:
      try: 
         # open the log file
         # read all data that is currently there
-        with open(args.logile) as f:
-          obsid         = zip(*[line.split() for line in f])[0]
-          serverport    = zip(*[line.split() for line in f])[1]
-          sendtimeUTC   = zip(*[line.split() for line in f])[2]
-          bandpass      = zip(*[line.split() for line in f])[3]
-          UTCdatetime   = zip(*[line.split() for line in f])[4]
-          BJD           = zip(*[line.split() for line in f])[5] 
-          targetflux    = zip(*[line.split() for line in f])[6]
-          targetfluxerr = zip(*[line.split() for line in f])[7]
-          compflux      = zip(*[line.split() for line in f])[8]
-          compfluxerr   = zip(*[line.split() for line in f])[9]
-          seeing        = zip(*[line.split() for line in f])[10]
-        
-        # remember the time when file has been read last
-        # and length of file
-        nline = len(obsid)
-        lastdatafiletime = os.stat(args.logfile).st_mtime
+        nline = 0
+        with open(args.logfile,'r') as fp:
+          for line in fp:
+              nline = nline + 1
+              line = line.strip()  
+              columns = line.split()
+              # skip comment line
+              if columns[0] == '#RTPhoS:':
+                  print ("skipped:", columns)
+              else:
+                  obsid         = columns[0]
+                  serverport    = columns[1]
+                  UTCdatetime   = columns[2]
+                  bandpass      = columns[3]
+                  BJD           = float(columns[4]) 
+                  targetflux    = float(columns[5])
+                  targetfluxerr = float(columns[6])
+                  compflux      = float(columns[7])
+                  compfluxerr   = float(columns[8])
+                  seeing        = float(columns[9])
 
-        # TBD:
-        # use just data that matches -filter argument
-        # something like matches = [x for x in a if x=='a']
+                  # TBD:
+                  # use just data that matches -filter argument
+                  # something like matches = [x for x in a if x=='a']
+                  newx = minutes_before_now(UTCdatetime)
+                  xdata = np.append(xdata,newx)
+                  yrawtarget=np.append(yrawtarget,targetflux)
+                  yrawtargeterr=np.append(yrawtargeterr,targetfluxerr)
+                  yrawcomp=np.append(yrawcomp,compflux)
+                  yrawcomperr=np.append(yrawcomperr,compfluxerr)
+                  # for now use the same raw counts for diff flux:
+                  ydflux=yrawtarget
+                  ydfluxerr=yrawtargeterr
+                  yseeing=np.append(yseeing,seeing)
+
+        # remember the time when file has been read last
+        lastdatafiletime = os.stat(args.logfile).st_mtime
 
         # TBD:
         # now filter out the last -npoints
         # .....
 
-        # convert UTCdatetime in minutes before now
-        # make also other lists in the same loop
-        for k in range(0,len(UTCdatetime)+1):
-            newx = minutes_before_now(UTCdatetime[k])
-            xdata = xdata.append(newx)
-            yrawtarget=yrawtarget.append(targetflux[k])
-            yrawtargeterr=yrawtargeterr.append(targetfluxerr[k])
-            yrawcomp=yrawcomp.append(compflux[k])
-            yrawcomperr=yrawcomperr.append(compfluxerr[k])
-            # for now use the same raw counts for diff flux:
-            ydflux=yrawtarget
-            ydfluxerr=yrawtargeterr
-            yseeing=yseeing.append(seeing[k])
-            
         # Initialize Plotting Environment
         plt.ion()
         fig = plt.figure(figsize=(12,12))
@@ -212,13 +226,13 @@ if uselog:
                    # update time of last file update
                    lastdatafiletime = datafiletime
                    # check the new length of the file 
-                   filelen = file_len(args.targetfile)
+                   filelen = file_len(args.logfile)
                    print "File has now: ", filelen
 
 ####################
+                   print ("Starting to read from line:", nline)
                    if nline <= filelen:
-                      for row in range(nline,filelen+1):
-
+                     for row in range(nline,filelen):
                          # move to the line stated by row variable
                          with open(args.logfile,'r') as fp:
                             j = 1
@@ -229,28 +243,33 @@ if uselog:
                              else:
                               j = j + 1
                          
-                         newobsid         = line[0]
-                         newserverport    = line[1]
-                         newsendtimeUTC   = line[2]
-                         newbandpass      = line[3]
-                         newUTCdatetime   = line[4]
-                         newBJD           = line[5] 
-                         newtargetflux    = line[6]
-                         newtargetfluxerr = line[7]
-                         newcompflux      = line[8]
-                         newcompfluxerr   = line[9]
-                         newseeing        = line[10]
-                         newx = minutes_before_now(line[4])
- 
-                         xdata = xdata.append(newx)
-                         yrawtarget=yrawtarget.append(newyrawtarget)
-                         yrawtargeterr=yrawtargeterr.append(newyrawtargeterr)
-                         yrawcomp=yrawcomp.append(newyrawcomp)
-                         yrawcomperr=yrawcomperr.append(newyrawcomperr)
+                         useline = useline.strip()  
+                         useline = useline.split()
+                         newobsid         = useline[0]
+                         newserverport    = useline[1]
+                         newUTCdatetime   = useline[2]
+                         newbandpass      = useline[3]
+                         
+                         # TBD:
+                         # here we shoud make a check if the data is
+                         # still in the same bandpass!
+                         newBJD           = float(useline[4]) 
+                         newtargetflux    = float(useline[5])
+                         newtargetfluxerr = float(useline[6])
+                         newcompflux      = float(useline[7])
+                         newcompfluxerr   = float(useline[8])
+                         newseeing        = float(useline[9])
+                         print newUTCdatetime
+                         newx = minutes_before_now(newUTCdatetime) 
+                         xdata = np.append(xdata,newx)
+                         yrawtarget=np.append(yrawtarget,newtargetflux)
+                         yrawtargeterr=np.append(yrawtargeterr,newtargetfluxerr)
+                         yrawcomp=np.append(yrawcomp,newcompflux)
+                         yrawcomperr=np.append(yrawcomperr,newcompfluxerr)
                          # for now use the same raw counts for diff flux:
                          ydflux=yrawtarget
                          ydfluxerr=yrawtargeterr
-                         yseeing=yseeing.append(seeing[k])
+                         yseeing=np.append(yseeing,newseeing)
                          
                          # ## TBD:
                          # medianintens = np.median(target_crop)
@@ -305,8 +324,6 @@ if uselog:
 ###### end try
      except (KeyboardInterrupt, SystemExit):
         print "Process aborted by user."
-        break
-
 
 ###############################
 ## if live plotting from server

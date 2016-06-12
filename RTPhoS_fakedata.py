@@ -23,11 +23,11 @@ try:
         tfile = open(tfilename, "a+")
         cfile = open(cfilename, "a+")
         now = datetime.utcnow()
-        # add two decimal places to seconds
-        micro = float(now.microsecond)
-        micro2 = str(int(round(micro,-4) / 10000.))
+        ## add two decimal places to seconds
+        #micro = float(now.microsecond)
+        #micro2 = str(int(round(micro,-4) / 10000.))
         now = now.strftime("%Y-%m-%d|%H:%M:%S")
-        now = now + '.' + micro2
+        #now = now + '.' + micro2
         print now
 
         # example fake data output

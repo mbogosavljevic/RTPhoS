@@ -9,7 +9,7 @@
 # port should be a string like tcp://localhost:port or other address
 # Examples:
 # RTPhoS_client_logger.py tcp://localhost:5556 
-# RTPhoS_client_logger.py tcp://92.96.59.99:5556 
+# RTPhoS_client_logger.py tcp://92.96.59.99:5556 -logfile mylog.dat
 
 import os
 import sys
@@ -77,6 +77,7 @@ try:
         obsid         = str(messagedata['obsid'])
         serverport    = str(messagedata['port'])
         sendtimeUTC   = str(messagedata['sendtimeUTC'])
+        sendtimeUTC   = sendtimeUTC.replace(" ","|")
         bandpass      = str(messagedata['bandpass'])
         UTCdatetime   = str(messagedata['UTCdatetime'])
         BJD           = str(messagedata['BJD'])
@@ -94,8 +95,8 @@ try:
         print "Sent time UTC : %s" % sendtimeUTC
         print "Observation time UTC: %s" % UTCdatetime
 
-        table_data = obsid.ljust(20) + serverport.ljust(28) + sendtimeUTC.ljust(22) + \
-                     bandpass.ljust(5) + UTCdatetime.ljust(22) + \
+        table_data = obsid.ljust(20) + serverport.ljust(28) + UTCdatetime.ljust(25) + \
+                     bandpass.ljust(5) + \
                      BJD.ljust(16) + targetflux.ljust(12) +  targetfluxerr.ljust(8) + \
                      compflux.ljust(12) + compfluxerr.ljust(8) + seeing.ljust(4) + '\n'
 
