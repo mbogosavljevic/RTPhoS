@@ -63,13 +63,13 @@ else:
     outfile = "RTPhoS_log_UTC"+ now.replace(" ", "_")+".txt"
 
 now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-myfile = open(outfile, "a+")
+myfile = open(outfile, "a")
 myfile.write("#RTPhoS: Log start UTC time %s \n" % now)
 myfile.close()
 
 try: 
     while True:
-        myfile = open(outfile, "a+")
+        myfile = open(outfile, "a")
         # get the message packet, which is a dictionary
         messagedata =json.loads(socket.recv())
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
