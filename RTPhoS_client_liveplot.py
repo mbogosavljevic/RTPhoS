@@ -157,8 +157,8 @@ def plot_datalog(fig, ax1, ax2, ax3, ax4, ax5, \
                  yrawcomperr, ydflux, ydfluxerr, yseeing):
 
     # Raw counts
-    line3a, = ax3.plot(xdata, yrawtarget, 'ro')
-    line3b, = ax3.plot(xdata, yrawcomp, 'go') 
+    line3a, = ax3.plot(xdata, yrawtarget, 'go')
+    line3b, = ax3.plot(xdata, yrawcomp, 'ro') 
     fig.legend([line3a, line3b,], ['Target', 'Comp'], loc='upper left', \
                bbox_to_anchor=[0.9,0.68], shadow=True,\
                numpoints=1, prop={'size':8})
@@ -413,7 +413,7 @@ if uselog:
                             yseeing, UTCtimes = append_datapoints(columns, xdata, yrawtarget, yrawtargeterr, \
                                                                   yrawcomp, yrawcomperr, ydflux, ydfluxerr,\
                                                                   yseeing, UTCtimes, now)
-                            
+                        
                         npoints_current, ax3, ax4, ax5, line3a, line3b, line4, line5, \
                             errorlines3a, errorlines3b, errorlines4 = update_plots(ax3, ax4, ax5, line3a, line3b,\
                                                                                    line4, line5, errorlines3a, \
