@@ -12,6 +12,7 @@ import time
 from datetime import datetime
 import numpy as np
 from astropy.io import fits
+import random
 
 tsleep   = float(sys.argv[1])
 tfilename = sys.argv[2]
@@ -29,6 +30,16 @@ try:
         now = now.strftime("%Y-%m-%d|%H:%M:%S")
         #now = now + '.' + micro2
         print now
+
+        # Create random array image of 100x100 pixels
+        t_image = np.random.random((100*100))
+        c_image = np.random.random((100*100))
+        t_image = t_image*500
+        c_image = c_image*500
+        hdu=fits.PrimaryHDU(t_image)
+        hdu.writeto("target.fits", clobber='True')
+        hdu=fits.PrimaryHDU(c_image)
+        hdu.writeto("comp.fits", clobber='True')
 
         # example fake data output
         id            = str(i)

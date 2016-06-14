@@ -77,20 +77,20 @@ def format_for_broadcast(args, t_part_message, nline):
     compdone = False
     if args.thumbtarget is not None:
         print "Reading target fits file: %s" % args.thumbtarget
-        hdulist1 = fits.open(args.thumbtarget)
-        timage = hdulist1[0].data
-        timage_list = timage.tolist()
+        timage_list = fits.getdata(args.thumbtarget)
+        timage_list = timage_list.tolist()
     else:
         timage_list = 'NaN'
-        if args.compfile is not None:
-            c_part_message = datatext_to_message(args.compfile, nline)
-            compdone = True
-        if args.thumbcomp is not None:
-            print "Reading comp fits file: %s" % args.thumbcomp
-            hdulist2 = fits.open(args.thumbcomp)
-            cimage = hdulist2[0].data
-        else:
-            cimage_list = 'NaN'
+        
+    if args.compfile is not None:
+       c_part_message = datatext_to_message(args.compfile, nline)
+       compdone = True
+    if args.thumbcomp is not None:
+        print "Reading comp fits file: %s" % args.thumbcomp
+        cimage_list = fits.getdata(args.thumbcomp)
+        cimage_list = cimage_list.tolist()
+    else:
+        cimage_list = 'NaN'
 
     UTCdatetime =  t_part_message['UTCdatetime']
     BJD = t_part_message['BJD']
@@ -150,9 +150,9 @@ parser.add_argument('-public', action='store_true', \
 parser.add_argument('--compfile', metavar='compfile', type=str, \
                     help='Comparison star data to be monitored for updates and broadcast.')
 parser.add_argument('--thumbtarget', metavar='thumbtarget', type=str, \
-                    help='50x50 pix fits thumbnail of the target object')
+                    help='fits thumbnail image of the target object')
 parser.add_argument('--thumbcomp', metavar='thumbcomp', type=str, \
-                    help='50x50 pix fits thumbnail of the comparison star')
+                    help='fits thumbnail image of the comparison star')
 parser.add_argument('--path', metavar='path', type=str, \
                     help='path to data files to be read [default: current dir]')
 
@@ -189,7 +189,7 @@ try:
               jsonmessage = format_for_broadcast(args,t_part_message,nline)
               socket.send(jsonmessage)
               print "RTPhoS: Message sent ", datetime.now()
-              print jsonmessage
+              #print jsonmessage
               firsttime = False
               # move counter to next line for next read
               nline = nline + 1
@@ -201,7 +201,7 @@ try:
                       socket.send(jsonmessage)
                       now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                       print "RTPhoS: Message sent ", now
-                      print jsonmessage
+                      #print jsonmessage
                       # set nline to one line more for next read
                       nline = row + 1                  
       else: 
