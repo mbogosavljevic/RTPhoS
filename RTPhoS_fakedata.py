@@ -32,8 +32,8 @@ try:
         print now
 
         # Create random array image of 100x100 pixels
-        t_image = np.random.random((100*100))
-        c_image = np.random.random((100*100))
+        t_image = np.random.random((100,100))
+        c_image = np.random.random((100,100))
         t_image = t_image*500
         c_image = c_image*500
         hdu=fits.PrimaryHDU(t_image)

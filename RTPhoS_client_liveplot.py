@@ -156,6 +156,27 @@ def plot_datalog(fig, ax1, ax2, ax3, ax4, ax5, \
                  xdata, yrawtarget, yrawtargeterr, yrawcomp, \
                  yrawcomperr, ydflux, ydfluxerr, yseeing):
 
+#    # Create random array image of 100x100 pixels
+#    tempim = np.random.random((100,100))
+#    tempim = tempim*500
+#    medianintens = np.median(tempim)
+#    tempim[tempim==0] = medianintens # Remove zero values
+#    tempim = np.log(tempim)          # Use for log scale plotting
+#    tempim = np.absolute(tempim)     # Remove negative values
+#    cropmin = np.amin(tempim)
+#    cropmax = np.amax(tempim)
+#    # Attempt for a reasonable thumbnail intensity scale 
+#    maxintens = ((cropmax-cropmin)/2.0)+cropmin
+#    # Target thumbnail
+#    ax1.plot([50,50],[0,100],'r:')             # Plot cross-hairs
+#    ax1.plot([0,100],[50,50],'r:')             #      -""-
+#    ax1.imshow(tempim, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
+
+#    # Comparison thumbnail
+#    ax2.plot([50,50],[0,100],'r:')             # Plot cross-hairs
+#    ax2.plot([0,100],[50,50],'r:')             #      -""-
+#    ax2.imshow(tempim, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
+
     # Raw counts
     line3a, = ax3.plot(xdata, yrawtarget, 'go')
     line3b, = ax3.plot(xdata, yrawcomp, 'ro') 
@@ -244,10 +265,41 @@ def append_datapoints(columns, xdata, yrawtarget, yrawtargeterr, \
 
 ##################
 # update_dataplots
-def update_plots(ax3, ax4, ax5, line3a, line3b, line4, line5, \
+def update_plots(ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, \
                  errorlines3a, errorlines3b, errorlines4, \
                  xdata, yrawtarget, yrawtargeterr, yrawcomp,\
                  yrawcomperr, ydflux, ydfluxerr, yseeing, npoints_current):
+
+    if os.path.exists("t1.fits") and os.path.exists("c1.fits"):
+        timage = fits.getdata('t1.fits')
+        cimage = fits.getdata('c1.fits')
+        # Thumbnail image settings
+        # Since these are random images need to remove all 0 and negative values.
+        medianintens = np.median(timage)
+        timage[timage==0] = medianintens # Remove zero values
+        timage = np.log(timage)          # Use for log scale plotting
+        timage = np.absolute(timage)     # Remove negative values 
+        medianintens = np.median(timage)
+        cimage[timage==0] = medianintens # Remove zero values
+        medianintens = np.median(cimage)
+        cimage[timage==0] = medianintens # Remove zero values
+        cimage = np.log(cimage)          # Use for log scale plotting
+        cimage = np.absolute(cimage)     # Remove negative values 
+        medianintens = np.median(cimage)
+        timage[timage==0] = medianintens # Remove zero values
+        cropmin = np.amin(timage)        # Scale is set based on target image
+        cropmax = np.amax(timage)
+        # Attempt for a reasonable thumbnail intensity scale 
+        maxintens = ((cropmax-cropmin)/2.0)+cropmin
+        # Target thumbnail
+        ax1.plot([50,50],[0,100],'r:')             # Plot cross-hairs
+        ax1.plot([0,100],[50,50],'r:')             #      -""-
+        ax1.imshow(timage, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
+
+        # Comparison thumbnail
+        ax2.plot([50,50],[0,100],'r:')             # Plot cross-hairs
+        ax2.plot([0,100],[50,50],'r:')             #      -""-
+        ax2.imshow(timage, cmap='gray', norm=LogNorm(vmin=cropmin, vmax=maxintens))
 
     # Raw counts
     line3a.set_xdata(xdata)
@@ -289,7 +341,7 @@ def update_plots(ax3, ax4, ax5, line3a, line3b, line4, line5, \
         errorlines4.append(l)
 
     npoints_current = len(xdata)
-    return npoints_current, ax3, ax4, ax5, line3a, line3b, line4, line5, \
+    return npoints_current, ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, \
                  errorlines3a, errorlines3b, errorlines4
 
 ##########################################################
@@ -414,8 +466,8 @@ if uselog:
                                                                   yrawcomp, yrawcomperr, ydflux, ydfluxerr,\
                                                                   yseeing, UTCtimes, now)
                         
-                        npoints_current, ax3, ax4, ax5, line3a, line3b, line4, line5, \
-                            errorlines3a, errorlines3b, errorlines4 = update_plots(ax3, ax4, ax5, line3a, line3b,\
+                        npoints_current, ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, \
+                            errorlines3a, errorlines3b, errorlines4 = update_plots(ax1, ax2,ax3, ax4, ax5, line3a, line3b,\
                                                                                    line4, line5, errorlines3a, \
                                                                                    errorlines3b,\
                                                                                    errorlines4, xdata, yrawtarget, \
@@ -432,7 +484,7 @@ if uselog:
 ###### end try
      except (KeyboardInterrupt, SystemExit):
         print "Process aborted by user."
-
+        
 ###############################
 ## if live plotting from server
 ###############################

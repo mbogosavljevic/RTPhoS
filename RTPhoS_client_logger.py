@@ -35,9 +35,9 @@ parser.add_argument('-logfile', type=str, \
                     help='Optional string, file name for the log to be saved')
 parser.add_argument('-filter', type=str, \
                     help='If set, will only save lines mathing the bandpass given as string')
-parser.add_argument('-thumbtarget', type=str, \
+parser.add_argument('-thumbtarget', metavar='thumbtarget', type=str, \
                     help='If set to a string, will save thumbnails of target object [string.fits]')
-parser.add_argument('-thumbcomp', type=str, \
+parser.add_argument('-thumbcomp', metavar='thumpcomp', type=str, \
                     help='If set to a string, will save thumbnails of comparison star [string.fits])')
 
 args = parser.parse_args()
@@ -87,9 +87,6 @@ try:
         compfluxerr   = str(messagedata['compfluxerr'])
         seeing        = str(messagedata['seeing'])
       
-        timage       = np.array(messagedata['thumbnail1'])
-        cimage       = np.array(messagedata['thumbnail2'])
-
         print "RTPhoS: message received %s" % now
         print "Sender: %s" % obsid
         print "Sent time UTC : %s" % sendtimeUTC
@@ -100,9 +97,27 @@ try:
                      BJD.ljust(16) + targetflux.ljust(12) +  targetfluxerr.ljust(8) + \
                      compflux.ljust(12) + compfluxerr.ljust(8) + seeing.ljust(4) + '\n'
 
+        # Write broadcast to text file
         myfile.write(table_data)
         myfile.close()
-
+        
+        # Write fits images. Only the latest transmitted images are saved.
+        # Target star fits
+        timage = messagedata['thumbnail1']
+        if isinstance(timage, list):
+                timage       = np.array(messagedata['thumbnail1'])                        
+                hdu=fits.PrimaryHDU(timage)
+                hdu.scale(type='float32', bzero=32768, bscale=1)
+                hdu.writeto(args.thumbtarget, clobber='True')
+        
+        # Comparison star fits         
+        cimage = messagedata['thumbnail2']        
+        if isinstance(cimage, list):            
+                cimage       = np.array(messagedata['thumbnail2'])                
+                hdu=fits.PrimaryHDU(cimage)
+                hdu.scale(type='float32', bzero=32768, bscale=1)
+                hdu.writeto(args.thumbcomp, clobber='True')
+        
         now = datetime.utcnow()
         sometime = datetime.strptime(UTCdatetime, "%Y-%m-%d|%H:%M:%S")
         elapsedTime = sometime - now
