@@ -30,7 +30,7 @@ try:
         now = now.strftime("%Y-%m-%d|%H:%M:%S")
         #now = now + '.' + micro2
         print now
-
+        
         # Create random array image of 100x100 pixels
         t_image = np.random.random((100,100))
         c_image = np.random.random((100,100))
