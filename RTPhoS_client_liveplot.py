@@ -18,7 +18,7 @@
 import os
 import sys
 import argparse
-import time
+import time, math
 from datetime import datetime
 import numpy as np
 from astropy.io import fits
@@ -80,6 +80,17 @@ def plot_initialize():
     ax5.set_ylim([0,3])
 
     return fig, ax1, ax2, ax3, ax4, ax5
+    
+#############################
+#
+def diff_photom(targetflux, targetfluxerr, compflux, compfluxerr):
+    # Do the differential photometry
+    ydfluxval    = (targetflux/compflux)
+    ydfluxerrval = ydflux*math.squrt( ((targetfluxerr/targetflux)**2.0) + \
+                                   ((compfluxerr/compflux)**2.0) )
+
+    return ydfluxval, ydfluxerrval
+
 #############################
 #
 def init_datapoins(tempfile, now, bjdswitch):
@@ -134,9 +145,10 @@ def init_datapoins(tempfile, now, bjdswitch):
                 yrawtargeterr.append(targetfluxerr)
                 yrawcomp.append(compflux)
                 yrawcomperr.append(compfluxerr)
-                # for now use the same raw counts for diff flux:
-                ydflux=yrawtarget
-                ydfluxerr=yrawtargeterr
+                ydfluxval, ydfluxerrval = diff_photom(targetflux, targetfluxerr, \
+                                                      compflux, compfluxerr)
+                ydflux.append(ydfluxval)
+                ydfluxerr.append(ydffluxerrval)
                 yseeing.append(seeing)
 
     print  "RTPhoS live plot: initial read found %s rows of data in log" % str(nline)
@@ -248,9 +260,10 @@ def append_datapoints(columns, xdata, yrawtarget, yrawtargeterr, \
     yrawtargeterr.append(targetfluxerr)
     yrawcomp.append(compflux)
     yrawcomperr.append(compfluxerr)
-    # for now use the same raw counts for diff flux:
-    ydflux=yrawtarget
-    ydfluxerr=yrawtargeterr
+    ydfluxval, ydfluxerrval = diff_photom(targetflux, targetfluxerr, \
+                                          compflux, compfluxerr)
+    ydflux.append(ydfluxval)
+    ydfluxerr.append(ydffluxerrval)
     yseeing.append(seeing)
     
     print "RTPhoS: datapoint at time %s added" % str(UTCdatetime)

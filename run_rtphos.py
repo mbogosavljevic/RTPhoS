@@ -490,6 +490,10 @@ def positions(optimalist, xyposlist, initx, inity, ntarg):
 def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist, xyposlist, seeing, \
                 frame_time, frame_timerr, pdatetime, filename, count, runpass):
 
+#   Output text file format example.
+#   No.    UTCdatetime       BJD            terr[s]  Flux       Flux_err    seeing flag  filename
+#    1  1990-01-01|00:00:00  2447892.500058   5.00   33368.6875 647.047546   5.46   O     gauss01.fits 
+
     # Move to the reduced files directory
     prev_dir = os.path.abspath(os.curdir)
     os.chdir(dirs['reduced'])
@@ -520,7 +524,7 @@ def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist
 #                " "+ str(frame_timerr)+" "+str(aperatlist[i][0])+" "+\
 #                str(aperatlist[i][1])+" "+str(seeing)+" "+filename+" \n")
 
-
+    # Save the optimal data from the 2nd photometry pass.
     if (runpass==2):
        for i in range(0, len(alltargets)):
            with open(alltargets[i][1]+".opt", "a") as outfile:
@@ -627,9 +631,6 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        # hardcoded rebin factor 2 here, TBD later
                        make_png(png_image_name, sfilename, dataref, 2)
                      
-                    # Data array used for plotting the current image. 
-                    #dataplt = data2  
-
                     # First check that all the required header keywords are in
                     # the FITS file and then get the time stamp for this frame.
                     # If the RA and DEC of the image are in the headers then
@@ -756,49 +757,51 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                               seeing, xyposlist[i][0], xyposlist[i][1], apflaglist[i]
                     print
 
+                    # Crop target and comparison star images and output to file
+                    # for transmition.Images are overwritten with the same filename.
+                    # image names are hardcoded to target.fits and comp.fits
+                    # First remove inf values from the image array and set them to 0.
+                    prev_dir = os.path.abspath(os.curdir)
+                    os.chdir(dirs['reduced'])
+                    dataplt = data2
+                    dataplt[dataplt == -inf] = 0.0             
+                    # Crop a 100px square around the target and write to file
+                    targetx = float(xyposlist[0][0])
+                    targety = float(xyposlist[0][1])
+                    target_crop = dataplt[targety-50:targety+50,targetx-50:targetx+50]
+                    hdu=pyfits.PrimaryHDU(target_crop)
+                    hdu.writeto("target.fits", clobber='True')
+                    # Crop a 100px square around the first comparison star and write to file
+                    compx = float(xyposlist[1][0])
+                    compy = float(xyposlist[1][1])
+                    comp_crop = dataplt[compy-50:compy+50,compx-50:compx+50]
+                    hdu=pyfits.PrimaryHDU(comp_crop)
+                    hdu.writeto("comp.fits", clobber='True')
+                    os.chdir(prev_dir)
+                    
                     # Fill the data lists
-                    xdata.append(twosig_time)
-                    yseeing.append(seeing)
-                    yrawtarget.append(float(optimalist[0][0]))
-                    yrawtargeterr.append(float(optimalist[0][1]))
-                    yrawcomp.append(float(optimalist[1][0]))
-                    yrawcomperr.append(float(optimalist[1][1]))
+                    #xdata.append(twosig_time)
+                    #yseeing.append(seeing)
+                    #yrawtarget.append(float(optimalist[0][0]))
+                    #yrawtargeterr.append(float(optimalist[0][1]))
+                    #yrawcomp.append(float(optimalist[1][0]))
+                    #yrawcomperr.append(float(optimalist[1][1]))
                     # Do the differential photometry calculations
-                    tcounts    = float(optimalist[0][0])
-                    terror     = float(optimalist[1][1])
-                    ccounts    = float(optimalist[1][0])
-                    cerror     = float(optimalist[1][1])
+                    #tcounts    = float(optimalist[0][0])
+                    #terror     = float(optimalist[1][1])
+                    #ccounts    = float(optimalist[1][0])
+                    #cerror     = float(optimalist[1][1])
                     #ydfluxs    = (tcounts/ccounts)
                     #ydfluxerrs = ydfluxs*math.sqrt( ((terror/tcounts)**2.0) + \
                     #                              ((cerror/ccounts)**2.0) )
                     #ydflux.append(ydfluxs)                       
                     #ydfluxerr.append(ydfluxerrs)
-
-                    # Begin graphics output calculations
-                    # dataplt[dataplt == -inf] = 0.0             # Remove inf values
-                    # Crop a 100px square around the target
-                    #targetx = float(xyposlist[0][0])
-                    #targety = float(xyposlist[0][1])
-                    #target_crop = dataplt[targety-50:targety+50,targetx-50:targetx+50]
-                    #medianintens = np.median(target_crop)
-                    #target_crop[target_crop==0] = medianintens # Remove zero values
-                    #target_crop = np.log(target_crop)          # Use for log scale plotting
-                    #cropmin = np.amin(target_crop)
-                    #cropmax = np.amax(target_crop)
-                    # Attempt for a reasonable intensity scale 
-                    #maxintens = ((cropmax-cropmin)/2.0)+cropmin
-                    # Crop a 100px square around the first comparison star
-                    #compx = float(xyposlist[1][0])
-                    #compy = float(xyposlist[1][1])
-                    #comp_crop = dataplt[compy-50:compy+50,compx-50:compx+50]
-                    #comp_crop[comp_crop==0] = medianintens     # Remove zero values
-                    #comp_crop = np.log(comp_crop)              
-                    # Use for log scale plotting
-
+                    
+                    time.sleep(10)
+                    
         before = after
         time.sleep(tsleep)   # Wait for tsleep seconds before repeating
            
-
     print
     print
     print "* Performing second pass for optimal photometry..." 
