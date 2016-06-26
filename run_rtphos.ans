@@ -37,7 +37,7 @@ param server
  port   entry {Broadcast to TCP/IP port} 5556
  obsid  entry {Observatory identifier} "Myobservatory"
  band   entry {Filter passband identifier} "R"
- tsleep entry {Sleep [sec]} 10.
+ ssleep entry {Sleep [sec]} 10.
  dpath  entry {Data files path [default ./]} "./"
  tdfile entry {Target object data file} "faketarget.dat"
  public checkbox {Check for broadcasting target flux} 0
@@ -58,7 +58,7 @@ endparam
 RTPhoS Settings
 *
 menu
-$param(rtphosdef); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $tsleep " 
+$param(rtphosdef); $param(fakedata); $param(server); $param(logger); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $tsleep $fsleep $tfile $cfile $port $obsid $band $sslep $dpath $tdfile  $public $cdfile  $tfits $cfits $lport $lfile $lband $ltfits $lcfits" 
 
 RUN RTPhoS data reduction
 *
@@ -73,7 +73,7 @@ $param(rtphosdef); $param(fakedata); xterm -hold -sb -sl 2000 -e bash -c "$rtpho
 RTPhoS Server Module
 *
 menu
-$param(rtphosdef); $param(server); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/RTPhoS_server_module.py $port $obsid $band $tdfile $tsleep -public $public --path $dpath --compfile $cdfile --thumbtarget $tfits --thumbcomp $cfits"
+$param(rtphosdef); $param(server); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/RTPhoS_server_module.py $port $obsid $band $tdfile $ssleep -public $public --path $dpath --compfile $cdfile --thumbtarget $tfits --thumbcomp $cfits"
 
 RTPhoS Client Logger Module
 *
