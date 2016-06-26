@@ -1,61 +1,82 @@
 param rtphosdef
- pathrtphos  entry {RTPhoS location}        "/home/zac/Work/Pipeline/Testbed/data"
- pathdefs    entry {RTPhoS settings}        "/home/zac/Work/Pipeline/Testbed/data/rtphos.defaults"
- pathlog     entry {RTPhoS logfile}         "/home/zac/Work/Pipeline/Testbed/data/rtphos.log"
- pathans     entry {DS9 Analysis settings}  "/home/zac/Work/Pipeline/Testbed/data/rtphos.ans"
- pathdata    entry {Raw data frames}	    "/home/zac/Work/Pipeline/Testbed/data"
- pathbias    entry {Bias frames for calibration}     "/home/zac/Work/Pipeline/Testbed/bias"            
- pathdark    entry {Dark frames for calibration}     "/home/zac/Work/Pipeline/Testbed/dark"            
- pathflat    entry {Flat frames for calibration}     "/home/zac/Work/Pipeline/Testbed/flat"            
- stringbias  entry {bias frames wildcard}	     "*bias*"                                      
- stringdark  entry {dark frames wildcard}	     "*dark*"                                      
- stringflat  entry {flat frames wildcard}	     "*flat*"                                      
- namebias    entry {Masterbias filename}	     "masterbias.fits"                             
- namedark    entry {Masterdark filename}	     "massterdark.fits"                            
- nameflat    entry {Masterflat filename}	     "masterflat.fits" 
- namepsfs    entry {PSF star list filename}	     "psf.cat" 
- namestars   entry {Target star list filename}   "stars.cat"                           
- cprefix     entry {Prefix for calibrated files}     "c_"                                          
- sradius     entry {Search radius for optimal centroiding} 5.0
- aradius     entry {Aperature radius for photometry} 10.0 
- cradius     entry {PSF Clipping radius for optimal photom} 5.0
- starnumber  entry {Star number to optimize photometry for} 1
- skyskew     entry {Sky profile skew for optimal photometry} -1  
+ rtphos  entry {RTPhoS location}       "/home/milan/RTPhoS"
+ pathdefs    entry {RTPhoS settings} "/home/milan/RTPhoS/rtphos.defaults"
+ pathlog     entry {RTPhoS logfile}               "/home/milan/RTPhoS/rtphos.log"
+ pathans     entry {DS9 Analysis settings} "/home/milan/RTPhoS/run_rtphos.ans"
+ pathdata    entry {Raw data frames}	       "/home/milan/RTPhoS/data"
+ pathbias    entry {Bias frames for calibration}  "/home/milan/RTPhoS/data/bias"
+ pathdark    entry {Dark frames for calibration}  "/home/milan/RTPhoS/data/dark"
+ pathflat    entry {Flat frames for calibration}  "/home/milan/RTPhoS/data/flat"
+ stringbias  entry {bias frames wildcard}	       "*bias*"
+ stringdark  entry {dark frames wildcard}	       "*dark*"
+ stringflat  entry {flat frames wildcard}	       "*flat*"
+ namebias    entry {Masterbias filename}	       "masterbias.fits"
+ namedark    entry {Masterdark filename}	       "massterdark.fits"
+ nameflat    entry {Masterflat filename}	       "masterflat.fits"
+ psfs        entry {list of objects for psf}      "psf.cat"
+ stars       entry {full list of objects}         "stars.cat"
+ cprefix     entry {Prefix for calibrated files}   "c_"
+ sradius     entry {Search radius for optimal centroiding}     5.0
+ aradius     entry {Aperature radius for photometry}           10.0
+ cradius     entry {PSF Clipping radius for optimal photom}    5.0
+ starnumber  entry {Star number to optimize photometry for}    1
+ skyskew     entry {Sky profile skew for optimal photometry}   -1
  skyfit      entry {Sky fitting switch for optimal photometry} -1
- gain        entry {Instrument Gain e-/ADU} 10.0
- verbose     checkbox {Verbose output switch} 0
- tsleep      entry {Sleep time before checking for new frames [s]} 3
+ gain        entry {Instrument Gain e-/ADU}         10.0
+ verbose     checkbox {Verbose output switch}       0
+ tsleep   entry {Sleep time before checking for new frames [s]} 3
 endparam
 
-param gifparams
- wildcard entry {Commong wildcard string for PNG images} "Q*png"
- nframes  entry {Number of last N frames to loop} 5
+param fakedata
+ fsleep entry {Fake data time period [sec]} 10
+ tfile  entry {Fake data target file} "faketarget.dat"
+ cfile  entry {Fake data comparison file} "fakecomp.dat"
 endparam
 
-param sourceparams
- source entry {Choose source name} "target"
- comp1  entry {Choose comp1 name [required]}  "C-1"
- comp2  entry {Choose comp2 name [optional/"none"]}  "none"
- comp3  entry {Choose comp3 name [optional/"none"]}  "none"
- nlast  entry {include N last measurements} 0
+param server
+ port   entry {Broadcast to TCP/IP port} 5556
+ obsid  entry {Observatory identifier} "Myobservatory"
+ band   entry {Filter passband identifier} "R"
+ tsleep entry {Sleep [sec]} 10.
+ dpath  entry {Data files path [default ./]} "./"
+ tdfile entry {Target object data file} "faketarget.dat"
+ public checkbox {Check for broadcasting target flux} 0
+ cdfile entry {Comparison star data file [optional]} "fakecomp.dat"
+ tfits  entry {Target stamp fits file [optional]} ""
+ cfits  entry {Comparison stamp fits file [optional]} ""
 endparam
+
+param logger
+ lport entry  {Receive from TCP/IP port} "tcp://localhost:5556"
+ lfile entry  {Log file name [optional]} ""
+ lband entry  {Filter passband to log [optional]} ""
+ ltfits entry {Target stamp fits file [optional]} ""
+ lcfits entry {Comparison stamp fits file [optional]} ""
+endparam
+
 
 RTPhoS Settings
 *
 menu
-$param(rtphosdef);  $param(gifparams); $param(sourceparams) ; xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/write_rtphos_defaults.py $pathrtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $namepsfs $namestars $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep $source $comp1 $comp2 $comp3 $nlast" 
+$param(rtphosdef); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $tsleep " 
 
-Run RTPhoS
+RUN RTPhoS data reduction
 *
 menu
-$param(rtphosdef); xterm -hold -sb -sl 2000 -e "tcsh -c \"python -u $pathrtphos/run_rtphos.py $xpa_method $pathdefs |& tee $pathlog\" "
+$param(rtphosdef); xterm -hold -sb -sl 2000 -e "tcsh -c \"python -u $rtphos/run_rtphos.py $xpa_method $pathdefs |& tee $pathlog\" "
 
-Fits to Animated GIF
+RTPhoS Fake Data Module
 *
 menu
-$param(gifparams); $param(rtphosdef); xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/loop_gif.py $filename $wildcard $nframes $tsleep"
+$param(rtphosdef); $param(fakedata); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/RTPhoS_fakedata.py $fsleep $tfile $cfile"
 
-Photometry Monitor
+RTPhoS Server Module
 *
 menu
-$param(sourceparams); $param(rtphosdef); xterm -hold -sb -sl 2000 -e bash -c "$pathrtphos/phot_monitor.py $pathlog $source $comp1 $comp2 $comp3 $nlast $tsleep"
+$param(rtphosdef); $param(server); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/RTPhoS_server_module.py $port $obsid $band $tdfile $tsleep -public $public --path $dpath --compfile $cdfile --thumbtarget $tfits --thumbcomp $cfits"
+
+RTPhoS Client Logger Module
+*
+menu
+$param(rtphosdef); $param(logger); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/RTPhoS_client_logger.py $lport -filter $lband -logfile $lfile -thumbtarget $ltfits -thumbcomp $lcfits"
+

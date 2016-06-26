@@ -46,7 +46,7 @@ try:
         obsid         = 'Vidojevica1.4m'
         bandpass      = 'R'
         UTCdatetime   = now
-        BJD           = '2447892.500058'
+        BJD           = str(round( (2447892.500058+i*tsleep/(24*3600.)), 7))
         terr          = '5.0'
         targetflux    = str(round(10000. + np.random.random()*2000.,2))
         targetfluxerr = str(round(np.sqrt(float(targetflux)),2))

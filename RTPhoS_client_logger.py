@@ -31,13 +31,13 @@ parser = argparse.ArgumentParser(description='RTPhoS client logger')
 parser.add_argument('port', metavar='port', type=str, \
                     help='TCP/IP port to listen')
 # optional
-parser.add_argument('-logfile', type=str, \
+parser.add_argument('-logfile', type=str, nargs='?', \
                     help='Optional string, file name for the log to be saved')
-parser.add_argument('-filter', type=str, \
+parser.add_argument('-filter', type=str, nargs='?', \
                     help='If set, will only save lines mathing the bandpass given as string')
-parser.add_argument('-thumbtarget', metavar='thumbtarget', type=str, \
+parser.add_argument('-thumbtarget', metavar='thumbtarget', type=str, nargs='?', \
                     help='If set to a string, will save thumbnails of target object [string.fits]')
-parser.add_argument('-thumbcomp', metavar='thumpcomp', type=str, \
+parser.add_argument('-thumbcomp', metavar='thumpcomp', type=str, nargs='?', \
                     help='If set to a string, will save thumbnails of comparison star [string.fits])')
 
 args = parser.parse_args()
@@ -49,20 +49,25 @@ if args.filter is not None:
 else:
     bandpass_filter = ""
 
+print "RTPhoS: Collecting updates from broadcasting server %s" % args.port
 # Socket to listen to server
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
 socket.connect ("%s" % args.port)
 socket.setsockopt(zmq.SUBSCRIBE,bandpass_filter)
-print "RTPhoS: Collecting updates from broadcasting server %s" % args.port
+
 
 now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 if args.logfile is not None: 
     outfile = args.logfile
+    print 'Logfile:', outfile
 else:
     outfile = "RTPhoS_log_UTC"+ now.replace(" ", "_")+".txt"
+    print 'Logfile:', outfile
+print 'Filter: ', args.filter
+print 'Thumbnail target name:', args.thumbtarget
+print 'Thumbnail comparison name:', args.thumbcomp
 
-now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 myfile = open(outfile, "a")
 myfile.write("#RTPhoS: Log start UTC time %s \n" % now)
 myfile.close()
@@ -82,7 +87,8 @@ try:
         UTCdatetime   = str(messagedata['UTCdatetime'])
         BJD           = str(messagedata['BJD'])
         targetflux    = str(messagedata['targetflux'])
-        targetfluxerr = str(messagedata['targetfluxerr'])
+        print messagedata['targetfluxerr']
+        targetfluxerr = str(round(np.float(messagedata['targetfluxerr']),3))
         compflux      = str(messagedata['compflux'])
         compfluxerr   = str(messagedata['compfluxerr'])
         seeing        = str(messagedata['seeing'])
@@ -94,8 +100,8 @@ try:
 
         table_data = obsid.ljust(20) + serverport.ljust(28) + UTCdatetime.ljust(25) + \
                      bandpass.ljust(5) + \
-                     BJD.ljust(16) + targetflux.ljust(12) +  targetfluxerr.ljust(8) + \
-                     compflux.ljust(12) + compfluxerr.ljust(8) + seeing.ljust(4) + '\n'
+                     BJD.ljust(16) + targetflux.ljust(12) +  targetfluxerr.ljust(10) + \
+                     compflux.ljust(12) + compfluxerr.ljust(10) + seeing.ljust(4) + '\n'
 
         # Write broadcast to text file
         myfile.write(table_data)

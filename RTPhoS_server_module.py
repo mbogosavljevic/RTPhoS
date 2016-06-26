@@ -94,7 +94,7 @@ def format_for_broadcast(args, t_part_message, nline):
 
     UTCdatetime =  t_part_message['UTCdatetime']
     BJD = t_part_message['BJD']
-    if args.public:
+    if args.public == 1:
         targetflux = t_part_message['flux']
         targetfluxerr = t_part_message['fluxerr']
     else:
@@ -144,20 +144,36 @@ parser.add_argument('tsleep', metavar='tsleep', type=float, \
                     help='Sleep time between checks of target data file')
 
 # boolean switch: set it in order to broadcast the fluxes, otherwise they will be private
-parser.add_argument('-public', action='store_true', \
-                    help='Set this switch to broadcast the target flux. Default FALSE')
+parser.add_argument('-public', type=int, default=0, \
+                    help='Set this switch to 1 to broadcast the target flux. Default 0 (FALSE)')
 # optional
-parser.add_argument('--compfile', metavar='compfile', type=str, \
+parser.add_argument('--compfile', metavar='compfile', type=str, nargs='?', default='empty', \
                     help='Comparison star data to be monitored for updates and broadcast.')
-parser.add_argument('--thumbtarget', metavar='thumbtarget', type=str, \
+parser.add_argument('--thumbtarget', metavar='thumbtarget', type=str, nargs='?', default='empty', \
                     help='fits thumbnail image of the target object')
-parser.add_argument('--thumbcomp', metavar='thumbcomp', type=str, \
+parser.add_argument('--thumbcomp', metavar='thumbcomp', type=str, nargs = '?', default='empty', \
                     help='fits thumbnail image of the comparison star')
-parser.add_argument('--path', metavar='path', type=str, \
+parser.add_argument('--path', metavar='path', type=str, nargs='?', default='./', \
                     help='path to data files to be read [default: current dir]')
 
-parser.set_defaults(path='./')
 args = parser.parse_args()
+
+if args.compfile == 'empty':
+    args.compfile = None
+
+if args.thumbtarget == 'empty':
+    args.thumbtarget = None
+
+if args.thumbcomp == 'empty':
+    args.thumbcomp = None
+
+if args.path == None: 
+    args.path = './'
+
+print args.compfile
+print args.thumbtarget
+print args.thumbcomp
+print args.path
 
 # connect to a publishing port
 port = int(args.port)
