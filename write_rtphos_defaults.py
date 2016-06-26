@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # M. Bogosavljevic, AOB, June 2015
 
-def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, psfs, stars, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, tsleep):
+def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, psfs, stars, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, tsleep, fsleep, tfile, cfile, port, obsid, band, sslep, dpath, tdfile, public, cdfile, tfits, cfits, lport, lfile, lband, ltfits, lcfits ):
 
     defs_file = open(pathdefs, "w")
 
@@ -64,10 +64,38 @@ def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbia
     defs_file.write("endparam\n")
     defs_file.write("\n")
 
+    defs_file.write("param fakedata \n")
+    defs_file.write(" fsleep entry {Fake data time period [sec]} " + fsleep + "\n")
+    defs_file.write(" tfile  entry {Fake data target file} " + tfile + "\n")
+    defs_file.write(" cfile  entry {Fake data comparison file} "+ cfile + "\n" )
+    defs_file.write("endparam\n")
+    defs_file.write("\n")
+
+    defs_file.write("param server \n")
+    defs_file.write(" port   entry {Broadcast to TCP/IP port}" + port + "\n")
+    defs_file.write(" obsid  entry {Observatory identifier} " + obsid + "\n")
+    defs_file.write(" band   entry {Filter passband identifier} " + band + "\n")
+    defs_file.write(" ssleep entry {Sleep [sec]} " + ssleep + "\n") 
+    defs_file.write(" dpath  entry {Data files path [default ./]} " + dpath + "\n")
+    defs_file.write(" tdfile entry {Target object data file} " + tdfile + "\n")
+    defs_file.write(" public checkbox {Check for broadcasting target flux} " + public + "\n")
+    defs_file.write(" cdfile entry {Comparison star data file [optional]} " + cdfile + "\n")
+    defs_file.write(" tfits  entry {Target stamp fits file [optional]} " + tfits + "\n")
+    defs_file.write(" cfits  entry {Comparison stamp fits file [optional]} " + cfits + "\n")
+    defs_file.write("endparam \n")
+
+    defs_file.write("param logger \n")
+    defs_file.write(" lport entry  {Receive from TCP/IP port} " + lport + "\n")
+    defs_file.write(" lfile entry  {Log file name [optional]} " + lfile +  "\n")
+    defs_file.write(" lband entry  {Filter passband to log [optional]} " + lband + "\n")
+    defs_file.write(" ltfits entry {Target stamp fits file [optional]} " + ltfits + "\n")
+    defs_file.write(" lcfits entry {Comparison stamp fits file [optional]} " + lcfits + "\n")
+    defs_file.write("endparam \n")
+
     defs_file.write("RTPhoS Settings\n")
     defs_file.write("*\n")
     defs_file.write("menu\n")
-    defs_file.write("$param(rtphosdef);  $param(gifparams); $param(sourceparams); xterm -hold -sb -sl 2000 -e bash -c \"$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $wildcard $nframes $tsleep $source $comp1 $comp2 $comp3 $nlast \" \n")
+    defs_file.write("$param(rtphosdef);  $param(gifparams); $param(sourceparams); xterm -hold -sb -sl 2000 -e bash -c \"$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $tsleep $fsleep $tfile $cfile $port $obsid $band $sslep $dpath $tdfile $public $cdfile $tfits $cfits $lport $lfile $lband $ltfits $lcfits \" \n")
     defs_file.write("\n")
 
     defs_file.write("RUN RTPhoS data reduction\n")
@@ -128,6 +156,24 @@ if  __name__ == "__main__":
     gain           = sys.argv[24]
     verbose        = sys.argv[25]
     tsleep         = sys.argv[26]
+    fsleep         = sys.argv[27]        
+    tfile          = sys.argv[28]
+    cfile          = sys.argv[29]
+    port           = sys.argv[30]
+    obsid          = sys.argv[31]
+    band           = sys.argv[32]
+    sslep          = sys.argv[33]
+    dpath          = sys.argv[34]
+    tdfile         = sys.argv[35]
+    public         = sys.argv[36]
+    cdfile         = sys.argv[37]
+    tfits          = sys.argv[38]
+    cfits          = sys.argv[39]
+    lport          = sys.argv[40]
+    lfile          = sys.argv[41]
+    lband          = sys.argv[42]
+    ltfits         = sys.argv[43]
+    lcfits         = sys.argv[44]
 
-    write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, psfs, stars, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, tsleep)
+    write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, psfs, stars, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, tsleep, fsleep, tfile, cfile, port, obsid, band, sslep, dpath, tdfile, public, cdfile, tfits, cfits, lport, lfile, lband, ltfits, lcfits)
 
