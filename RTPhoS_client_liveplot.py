@@ -86,7 +86,7 @@ def plot_initialize():
 def diff_photom(targetflux, targetfluxerr, compflux, compfluxerr):
     # Do the differential photometry
     ydfluxval    = (targetflux/compflux)
-    ydfluxerrval = ydflux*math.squrt( ((targetfluxerr/targetflux)**2.0) + \
+    ydfluxerrval = ydfluxval*math.sqrt( ((targetfluxerr/targetflux)**2.0) + \
                                    ((compfluxerr/compflux)**2.0) )
 
     return ydfluxval, ydfluxerrval
@@ -148,7 +148,7 @@ def init_datapoins(tempfile, now, bjdswitch):
                 ydfluxval, ydfluxerrval = diff_photom(targetflux, targetfluxerr, \
                                                       compflux, compfluxerr)
                 ydflux.append(ydfluxval)
-                ydfluxerr.append(ydffluxerrval)
+                ydfluxerr.append(ydfluxerrval)
                 yseeing.append(seeing)
 
     print  "RTPhoS live plot: initial read found %s rows of data in log" % str(nline)
@@ -168,7 +168,7 @@ def init_plot_datalog(fig, ax1, ax2, ax3, ax4, ax5, \
     if bjdswitch:
         for k in range(0,len(xdata)):
             hours = (xdata[k]-lowestjd)*24.0
-            print k, "Here", hours
+            #print k, "Here", hours
             xdata2.append(hours)
     else:
         xdata2 = xdata
@@ -220,7 +220,7 @@ def init_plot_datalog(fig, ax1, ax2, ax3, ax4, ax5, \
         if bjdswitch is False:
             errorlines4.append(l)
 
-    return line3a, line3b, line4, line5, errorlines3a, errorlines3b, errorlines4, lowestjd
+    return line3a, line3b, line4, line5, xdata2, errorlines3a, errorlines3b, errorlines4, lowestjd
 
 #############################
 # append_datapoints
@@ -263,7 +263,7 @@ def append_datapoints(columns, xdata, yrawtarget, yrawtargeterr, \
     ydfluxval, ydfluxerrval = diff_photom(targetflux, targetfluxerr, \
                                           compflux, compfluxerr)
     ydflux.append(ydfluxval)
-    ydfluxerr.append(ydffluxerrval)
+    ydfluxerr.append(ydfluxerrval)
     yseeing.append(seeing)
     
     print "RTPhoS: datapoint at time %s added" % str(UTCdatetime)
@@ -317,7 +317,7 @@ def update_plots(ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, \
 
     # Differential flux
     line4.set_xdata(xdata)
-    line4.set_ydata(yrawtarget)
+    line4.set_ydata(ydflux)
 
     # Seeing plot
     line5.set_xdata(xdata)
@@ -352,6 +352,8 @@ def update_plots(ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, \
     return ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, \
            errorlines3a, errorlines3b, errorlines4
 
+###################
+#
 def update_plots_jd(ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, \
                     xdata, yrawtarget, yrawtargeterr, yrawcomp,\
                     yrawcomperr, ydflux, ydfluxerr, yseeing, oldn):
@@ -397,7 +399,7 @@ def update_plots_jd(ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, \
 
     # Differential flux
     line4.set_xdata(xdata)
-    line4.set_ydata(yrawtarget)
+    line4.set_ydata(ydflux)
 
     # Seeing plot
     line5.set_xdata(xdata)
@@ -405,7 +407,7 @@ def update_plots_jd(ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, \
                                                                                        
     npoints_current = len(xdata)
     # plot just the extra few errorbars
-    for k in range(oldn+1,npoints_current):
+    for k in range(oldn,npoints_current):
         ax3.plot([xdata[k],xdata[k]], \
                  [yrawtarget[k]-yrawtargeterr[k],\
                   yrawtarget[k]+yrawtargeterr[k]], 'g-')
@@ -415,10 +417,6 @@ def update_plots_jd(ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, \
         ax4.plot([xdata[k],xdata[k]],\
                  [ydflux[k]-ydfluxerr[k],\
                   ydflux[k]+ydfluxerr[k]], 'b-')
-
-    ###ax3.relim()
-    #ax4.relim()
-    #ax5.relim()
  
     return ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5
 
@@ -502,7 +500,7 @@ if uselog:
         fig, ax1, ax2, ax3, ax4, ax5 = plot_initialize()
 
         # if any data already present in the log, plot it
-        line3a, line3b, line4, line5, errorlines3a, errorlines3b, errorlines4, lowestjd = \
+        line3a, line3b, line4, line5, xdata2, errorlines3a, errorlines3b, errorlines4, lowestjd = \
                      init_plot_datalog(fig, ax1, ax2, ax3, ax4, ax5, \
                                   xdata, yrawtarget, yrawtargeterr, yrawcomp, \
                                        yrawcomperr, ydflux, ydfluxerr, yseeing, bjdswitch)
@@ -530,9 +528,10 @@ if uselog:
                 # update delta-times in minutes for old points
                 xdata = []
                 now = datetime.utcnow()
-                for t in UTCtimes:
-                    newtime = minutes_before_now(now,t)
-                    xdata.append(round(newtime,3)) 
+                if not bjdswitch:
+                   for t in UTCtimes:
+                       newtime = minutes_before_now(now,t)
+                       xdata.append(round(newtime,3)) 
                    
                 # invoke shell commands to make a 
                 fp = open(args.logfile+"_diff",'r')
@@ -546,13 +545,14 @@ if uselog:
                         print "Test:",line
                         oldn = npoints_current
                         
-                        xdata, yrawtarget, yrawtargeterr, yrawcomp, yrawcomperr, ydflux, ydfluxerr,\
-                            yseeing, UTCtimes = append_datapoints(columns, xdata, yrawtarget, yrawtargeterr, \
+                        xdata2, yrawtarget, yrawtargeterr, yrawcomp, yrawcomperr, ydflux, ydfluxerr,\
+                            yseeing, UTCtimes = append_datapoints(columns, xdata2, yrawtarget, yrawtargeterr, \
                                                                   yrawcomp, yrawcomperr, ydflux, ydfluxerr,\
                                                                   yseeing, UTCtimes, now, bjdswitch, lowestjd)
+                                 
                         if bjdswitch:
                             ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, = update_plots_jd(ax1, ax2, ax3, ax4, ax5, line3a, line3b,\
-                                                                                       line4, line5, xdata, yrawtarget, \
+                                                                                       line4, line5, xdata2, yrawtarget, \
                                                                                        yrawtargeterr, yrawcomp, yrawcomperr, 
                                                                                        ydflux, ydfluxerr, yseeing,\
                                                                                        oldn)
@@ -566,7 +566,7 @@ if uselog:
                                                                                        ydflux, ydfluxerr, yseeing,\
                                                                                        oldn)
 
-                        npoints_current = len(xdata)
+                        npoints_current = len(xdata2)
                         fig.canvas.show()
                         print "RTPhoS: currently displayed %s points" % str(npoints_current)
 ############# end if datafiletime !=
