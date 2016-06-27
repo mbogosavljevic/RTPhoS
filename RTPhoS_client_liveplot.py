@@ -157,7 +157,7 @@ def init_datapoins(tempfile, now, bjdswitch):
 
 ##############################
 # plot_datalog
-def init_plot_datalog(fig, ax1, ax2, ax3, ax4, ax5, \
+def init_plot_data(fig, ax1, ax2, ax3, ax4, ax5, \
                  xdata, yrawtarget, yrawtargeterr, yrawcomp, \
                       yrawcomperr, ydflux, ydfluxerr, yseeing, bjdswitch):
 
@@ -168,7 +168,6 @@ def init_plot_datalog(fig, ax1, ax2, ax3, ax4, ax5, \
     if bjdswitch:
         for k in range(0,len(xdata)):
             hours = (xdata[k]-lowestjd)*24.0
-            #print k, "Here", hours
             xdata2.append(hours)
     else:
         xdata2 = xdata
@@ -420,7 +419,6 @@ def update_plots_jd(ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, \
  
     return ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5
 
-
 ##########################################################
 ### MAIN CODE ###
 ##########################################################
@@ -431,17 +429,17 @@ parser = argparse.ArgumentParser(description='RTPhoS client live plotter')
 
 # mandatory params:
 # 
-parser.add_argument('-filter', type=str, \
-                    help='If set, will only plot data mathing the bandpass given as string')
-parser.add_argument('-port', metavar='port', type=str, \
+parser.add_argument('filter', type=str, \
+                    help='Plot data mathing the bandpass chosen')
+parser.add_argument('port', metavar='port', type=str, \
                     help='TCP/IP port to listen')
-parser.add_argument('-logfile', type=str, \
-                    help='Optional string, file name for the log to be saved')
 # optional
-parser.add_argument('-npoints', type=int, \
+parser.add_argument('-logfile', type=str, nargs='?', \
+                    help='Optional string, file name for the log to be saved')
+parser.add_argument('-npoints', type=int, nargs='?', \
                     help='If reading logfile, plot just last npoints')
-parser.add_argument('-minnow', action='store_true', \
-                    help='Set this to plot X axis as minutes from current in every plot. Default FALSE')
+parser.add_argument('-minnow', type=int, nargs='?', \
+                    help='Set this to 1 (True) to plot X axis as minutes from current time. Default 0 (False)')
 
 # TBD:
 #parser.add_argument('-pastmin', type=int, \
@@ -451,15 +449,17 @@ args = parser.parse_args()
 #if args.minnow is None:
 #    bjdswitch = True
 bjdswitch = True
+port = args.port
 
 if args.logfile is not None:
     uselog = True
-    if args.port is not None:
+    if port is not None:
         print "!RTPhoS: you have specified both port and logfile to monitor!"
         print "This is not possible. Continuing with using the logfile."
 else:
     uselog = False
-    if args.port is None: 
+    print "RTPhoS: no log file set. Plotting live data only."
+    if port is None: 
         print "Set -port or -logfile!"
 
 # bandpass filter must be at the beginning of the messages sent
@@ -469,8 +469,6 @@ if args.filter is not None:
 else:
     print "-filter option not set!"
 
-bandpass_filter = "{\"bandpass\": \"" + args.filter
-print "RTPhoS: Live plot with bandpass filter: ", args.filter
 #################################
 # if using live updating log file
 ################################
@@ -501,7 +499,7 @@ if uselog:
 
         # if any data already present in the log, plot it
         line3a, line3b, line4, line5, xdata2, errorlines3a, errorlines3b, errorlines4, lowestjd = \
-                     init_plot_datalog(fig, ax1, ax2, ax3, ax4, ax5, \
+                     init_plot_data(fig, ax1, ax2, ax3, ax4, ax5, \
                                   xdata, yrawtarget, yrawtargeterr, yrawcomp, \
                                        yrawcomperr, ydflux, ydfluxerr, yseeing, bjdswitch)
         fig.canvas.show()
@@ -542,7 +540,6 @@ if uselog:
                     if columns[0] == '#RTPhoS:':
                         print "skipped:", columns
                     else:
-                        print "Test:",line
                         oldn = npoints_current
                         
                         xdata2, yrawtarget, yrawtargeterr, yrawcomp, yrawcomperr, ydflux, ydfluxerr,\
@@ -581,47 +578,101 @@ if uselog:
 ###############################
 ## if live plotting from server
 ###############################
-### TBD:
-#else:
-#     # Socket to talk to server
-#     context = zmq.Context()
-#     socket = context.socket(zmq.SUB)
-#     socket.connect ("%s" % port)
-#     socket.setsockopt(zmq.SUBSCRIBE,bandpass_filter)
-#     print "RTPhoS: Collecting updates from broadcasting server ", port
-#
-#     try: 
-#        while True:
-#              # get the message packet, which is a dictionary
-#              messagedata =json.loads(socket.recv())
-#
-#              now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-#        
-#              obsid         = str(messagedata['obsid'])
-#              serverport    = str(messagedata['port'])
-#              sendtimeUTC   = str(messagedata['sendtimeUTC'])
-#              bandpass      = str(messagedata['bandpass'])
-#              UTCdatetime   = str(messagedata['UTCdatetime'])
-#              BJD           = str(messagedata['BJD'])
-#              targetflux    = str(messagedata['targetflux'])
-#              targetfluxerr = str(messagedata['targetfluxerr'])
-#              compflux      = str(messagedata['compflux'])
-#              compfluxerr   = str(messagedata['compfluxerr'])
-#              seeing        = str(messagedata['seeing'])
-#      
-#              timage       = np.array(messagedata['thumbnail1'])
-#              cimage       = np.array(messagedata['thumbnail2'])
-#
-#              print "RTPhoS: message received %s" % now
-#              print "Sender: %s" % obsid
-#              print "Sent time UTC : %s" % sendtimeUTC
-#              print "Observation time UTC: %s" % UTCdatetime
-#              now = datetime.utcnow()
-#              sometime = datetime.strptime(UTCdatetime, "%Y-%m-%d|%H:%M:%S.%f")
-#              elapsedTime = sometime - now
-#              secondold = elapsedTime.total_seconds()
-#              print "Data is %s seconds old." % str(round(abs(secondold),1))
-#              print "--- Message logged."
-#     except (KeyboardInterrupt, SystemExit):
-#        print "Process aborted by user."
-#        break
+
+else:
+     # Socket to talk to server
+     context = zmq.Context()
+     socket = context.socket(zmq.SUB)
+     socket.connect ("%s" % port)
+     socket.setsockopt(zmq.SUBSCRIBE,bandpass_filter)
+     print "RTPhoS: Collecting updates from broadcasting server ", port
+
+     # initialize the plots
+     fig, ax1, ax2, ax3, ax4, ax5 = plot_initialize()
+
+     fig.canvas.show()
+
+     # Initialize data lists
+     xdata=[]         # X-axis data (time, either past minutes or BJD)
+     xdata2 = []      # in hours since lowest BJD
+     yrawtarget = []  # Raw target counts
+     yrawtargeterr=[] # Raw target error bars
+     yrawcomp=[]      # Raw comparison counts
+     yrawcomperr=[]   # Raw comparison error bars
+     ydflux=[]        # Differential photometry counts
+     ydfluxerr=[]     # Differential photometry error bars
+     yseeing=[]       # Seeing data
+     UTCtimes = []
+
+     try: 
+        while True:
+            # get the message packet, which is a dictionary
+            messagedata =json.loads(socket.recv())
+            now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            obsid         = str(messagedata['obsid'])
+            serverport    = str(messagedata['port'])
+            sendtimeUTC   = str(messagedata['sendtimeUTC'])
+            bandpass      = str(messagedata['bandpass'])
+            UTCdatetime   = str(messagedata['UTCdatetime'])
+            BJD           = np.float64(messagedata['BJD'])
+            targetflux    = np.float32(messagedata['targetflux'])
+            targetfluxerr = np.float16(messagedata['targetfluxerr'])
+            compflux      = np.float32(messagedata['compflux'])
+            compfluxerr   = np.float16(messagedata['compfluxerr'])
+            seeing        = np.float16(messagedata['seeing'])
+            timage       = np.array(messagedata['thumbnail1'])
+            cimage       = np.array(messagedata['thumbnail2'])
+
+            oldn = len(xdata)
+            UTCtimes.append(UTCdatetime)
+                        
+            if bjdswitch:
+                xdata.append(BJD)
+            else:
+                # UTCtimes is a list, stores all actual times for
+                # recalculating minutes_before_now later
+                newx = minutes_before_now(now, UTCdatetime)
+                xdata.append(round(newx,3))
+
+            yrawtarget.append(targetflux)
+            yrawtargeterr.append(targetfluxerr)
+            yrawcomp.append(compflux)
+            yrawcomperr.append(compfluxerr)
+            ydfluxval, ydfluxerrval = diff_photom(targetflux, targetfluxerr, \
+                                                  compflux, compfluxerr)
+            ydflux.append(ydfluxval)
+            ydfluxerr.append(ydfluxerrval)
+            yseeing.append(seeing)
+            
+            print "RTPhoS: message received %s" % now
+            print "Sender: %s" % obsid
+            print "Sent time UTC : %s" % sendtimeUTC
+            print "Observation time UTC: %s" % UTCdatetime
+            now = datetime.utcnow()
+            sometime = datetime.strptime(UTCdatetime, "%Y-%m-%d|%H:%M:%S")
+            elapsedTime = sometime - now
+            secondold = elapsedTime.total_seconds()
+            print "Data is %s seconds old." % str(round(abs(secondold),1))
+
+            # if this is the first data point
+            print "Oldn:", oldn
+            if oldn == 0:
+                    line3a, line3b, line4, line5, xdata2, errorlines3a, errorlines3b, errorlines4, lowestjd = \
+                     init_plot_data(fig, ax1, ax2, ax3, ax4, ax5, \
+                                  xdata, yrawtarget, yrawtargeterr, yrawcomp, \
+                                       yrawcomperr, ydflux, ydfluxerr, yseeing, bjdswitch)
+            else:
+                if bjdswitch:
+                    hours = (BJD-lowestjd)*24.0
+                    xdata2.append(hours)
+
+                    ax1, ax2, ax3, ax4, ax5, line3a, line3b, line4, line5, = update_plots_jd(ax1, ax2, ax3, ax4, ax5, line3a, line3b,\
+                                                                                         line4, line5, xdata2, yrawtarget, \
+                                                                                         yrawtargeterr, yrawcomp, yrawcomperr, 
+                                                                                         ydflux, ydfluxerr, yseeing,\
+                                                                                         oldn)
+
+     except (KeyboardInterrupt, SystemExit):
+         print "Process aborted by user."
+
