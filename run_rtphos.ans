@@ -54,11 +54,20 @@ param logger
  lcfits entry {Comparison stamp fits file [optional]} ""
 endparam
 
+param liveplot
+ vport entry {Receive from TCP/IP port} "tcp://localhost:5556"
+ vband entry {Filter passband to receive} "R"
+ vlive checkbox {Plot just new data points?} 0
+ vfile entry  {Log file name to sue [if above unchecked]} ""
+ vpoints entry {Plot last npoints}
+ vmin  checkbox {Plot X axis as minutes from current time} 0
+endparam
+
 
 RTPhoS Settings
 *
 menu
-$param(rtphosdef); $param(fakedata); $param(server); $param(logger); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $tsleep $fsleep $tfile $cfile $port $obsid $band $sslep $dpath $tdfile  $public $cdfile  $tfits $cfits $lport $lfile $lband $ltfits $lcfits" 
+$param(rtphosdef); $param(fakedata); $param(server); $param(logger); xterm -hold -sb -sl 2000 -e tcsh -c "$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $tsleep $fsleep $tfile $cfile $port $obsid $band $sslep $dpath $tdfile  $public $cdfile  $tfits $cfits $lport $lfile $lband $ltfits $lcfits" 
 
 RUN RTPhoS data reduction
 *
@@ -68,15 +77,19 @@ $param(rtphosdef); xterm -hold -sb -sl 2000 -e "tcsh -c \"python -u $rtphos/run_
 RTPhoS Fake Data Module
 *
 menu
-$param(rtphosdef); $param(fakedata); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/RTPhoS_fakedata.py $fsleep $tfile $cfile"
+$param(rtphosdef); $param(fakedata); xterm -hold -sb -sl 2000 -e tcsh -c "$rtphos/RTPhoS_fakedata.py $fsleep $tfile $cfile"
 
 RTPhoS Server Module
 *
 menu
-$param(rtphosdef); $param(server); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/RTPhoS_server_module.py $port $obsid $band $tdfile $ssleep -public $public --path $dpath --compfile $cdfile --thumbtarget $tfits --thumbcomp $cfits"
+$param(rtphosdef); $param(server); xterm -hold -sb -sl 2000 -e tcsh -c "$rtphos/RTPhoS_server_module.py $port $obsid $band $tdfile $ssleep -public $public --path $dpath --compfile $cdfile --thumbtarget $tfits --thumbcomp $cfits"
 
 RTPhoS Client Logger Module
 *
 menu
-$param(rtphosdef); $param(logger); xterm -hold -sb -sl 2000 -e bash -c "$rtphos/RTPhoS_client_logger.py $lport -filter $lband -logfile $lfile -thumbtarget $ltfits -thumbcomp $lcfits"
+$param(rtphosdef); $param(logger); xterm -hold -sb -sl 2000 -e tcsh -c "$rtphos/RTPhoS_client_logger.py $lport -filter $lband -logfile $lfile -thumbtarget $ltfits -thumbcomp $lcfits"
 
+RTPhoS Live Plotting Module
+*
+menu
+$param(rtphosdef); $param(liveplot); xterm -hold -sb -sl 2000 -e tcsh -c "$rtphos/RTPhoS_client_liveplot.py $vband $vport -logfile $vfile -npoints $vpoints -minnow $vmin "
