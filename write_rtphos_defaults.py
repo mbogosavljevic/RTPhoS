@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # M. Bogosavljevic, AOB, June 2015
 
-def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, psfs, stars, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, tsleep, fsleep, tfile, cfile, port, obsid, band, sslep, dpath, tdfile, public, cdfile, tfits, cfits, lport, lfile, lband, ltfits, lcfits ):
+def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, psfs, stars, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, linlevel, satslevel, verbose, tsleep, fsleep, tfile, cfile, port, obsid, band, sslep, dpath, tdfile, public, cdfile, tfits, cfits, lport, lfile, lband, ltfits, lcfits ):
 
     defs_file = open(pathdefs, "w")
 
@@ -26,6 +26,8 @@ def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbia
     defs_file.write(skyskew    + "     # Sky profile skew for optimal photometry\n")	
     defs_file.write(skyfit     + "     # Sky fitting switch for optimal photometry\n")	
     defs_file.write(gain       + "     # Instrument Gain e-/ADU\n")	
+    defs_file.write(linlevel   + "     # Instrument linearity level (counts)\n")	
+    defs_file.write(satslevel  + "     # Instrument saturatoin level (counts) e-/ADU\n")	
     defs_file.write(verbose    + "     # Verbose output switch\n")	
     defs_file.write(tsleep     + "     # Sleep time before checking for new frames [s]\n")	
 
@@ -58,7 +60,9 @@ def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbia
     defs_file.write(" starnumber  entry {Star number to optimize photometry for}    "   +  starnumber + "\n" )  
     defs_file.write(" skyskew     entry {Sky profile skew for optimal photometry}   "   +  skyskew   + "\n" )  
     defs_file.write(" skyfit      entry {Sky fitting switch for optimal photometry} "   +  skyfit    + "\n" )
-    defs_file.write(" gain        entry {Instrument Gain e-/ADU}         " +  gain       + "\n" )    
+    defs_file.write(" gain        entry {Instrument Gain e-/ADU}         " +  gain       + "\n" )
+    defs_file.write(" linlevel    entry {Instrument linearity level (counts)}       " +  linlevel    + "\n" )
+    defs_file.write(" gain        entry {Instrument saturation level (counts)}      " +  satslevel   + "\n" )
     defs_file.write(" verbose     checkbox {Verbose output switch}       " +  verbose    + "\n" )    
     defs_file.write(" tsleep   entry {Sleep time before checking for new frames [s]} " + tsleep + "\n" )
     defs_file.write("endparam\n")
@@ -95,7 +99,7 @@ def write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbia
     defs_file.write("RTPhoS Settings\n")
     defs_file.write("*\n")
     defs_file.write("menu\n")
-    defs_file.write("$param(rtphosdef);  $param(gifparams); $param(sourceparams); xterm -hold -sb -sl 2000 -e bash -c \"$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $verbose $tsleep $fsleep $tfile $cfile $port $obsid $band $sslep $dpath $tdfile $public $cdfile $tfits $cfits $lport $lfile $lband $ltfits $lcfits \" \n")
+    defs_file.write("$param(rtphosdef);  $param(gifparams); $param(sourceparams); xterm -hold -sb -sl 2000 -e bash -c \"$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $linlevel $satslevel $verbose $tsleep $fsleep $tfile $cfile $port $obsid $band $sslep $dpath $tdfile $public $cdfile $tfits $cfits $lport $lfile $lband $ltfits $lcfits \" \n")
     defs_file.write("\n")
 
     defs_file.write("RUN RTPhoS data reduction\n")
@@ -154,26 +158,28 @@ if  __name__ == "__main__":
     skyskew        = sys.argv[22]
     skyfit         = sys.argv[23]
     gain           = sys.argv[24]
-    verbose        = sys.argv[25]
-    tsleep         = sys.argv[26]
-    fsleep         = sys.argv[27]        
-    tfile          = sys.argv[28]
-    cfile          = sys.argv[29]
-    port           = sys.argv[30]
-    obsid          = sys.argv[31]
-    band           = sys.argv[32]
-    sslep          = sys.argv[33]
-    dpath          = sys.argv[34]
-    tdfile         = sys.argv[35]
-    public         = sys.argv[36]
-    cdfile         = sys.argv[37]
-    tfits          = sys.argv[38]
-    cfits          = sys.argv[39]
-    lport          = sys.argv[40]
-    lfile          = sys.argv[41]
-    lband          = sys.argv[42]
-    ltfits         = sys.argv[43]
-    lcfits         = sys.argv[44]
+    linlevel       = sys.argv[25]
+    satslevel      = sys.argv[26]
+    verbose        = sys.argv[27]
+    tsleep         = sys.argv[28]
+    fsleep         = sys.argv[29]        
+    tfile          = sys.argv[30]
+    cfile          = sys.argv[31]
+    port           = sys.argv[32]
+    obsid          = sys.argv[33]
+    band           = sys.argv[34]
+    sslep          = sys.argv[35]
+    dpath          = sys.argv[36]
+    tdfile         = sys.argv[37]
+    public         = sys.argv[38]
+    cdfile         = sys.argv[39]
+    tfits          = sys.argv[40]
+    cfits          = sys.argv[41]
+    lport          = sys.argv[42]
+    lfile          = sys.argv[43]
+    lband          = sys.argv[44]
+    ltfits         = sys.argv[45]
+    lcfits         = sys.argv[46]
 
-    write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, psfs, stars, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, verbose, tsleep, fsleep, tfile, cfile, port, obsid, band, sslep, dpath, tdfile, public, cdfile, tfits, cfits, lport, lfile, lband, ltfits, lcfits)
+    write_rtphos_defaults( rtphos, pathdefs, pathlog, pathans, pathdata, pathbias, pathdark, pathflat, stringbias, stringdark, stringflat, namebias, namedark, nameflat, psfs, stars, cprefix, sradius, aradius, cradius, starnumber, skyskew, skyfit, gain, linlevel, satslevel, verbose, tsleep, fsleep, tfile, cfile, port, obsid, band, sslep, dpath, tdfile, public, cdfile, tfits, cfits, lport, lfile, lband, ltfits, lcfits)
 

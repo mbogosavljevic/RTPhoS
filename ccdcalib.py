@@ -996,19 +996,18 @@ def pixflag(rtdefs, dirs, filename, image, hdr):
 
     path, filename = os.path.split(filename)
     filename = os.path.splitext(filename)
+    
     print "----------------------------------------------------------------"
     print "* Creating pixel flags for file:", filename[0]
-
-
 
     # Make sure we are in the 'reduced' directory
     prev_dir = os.path.abspath(os.curdir)
     os.chdir(dirs['reduced'])
 
-    # Set the saturation level  ************ HARD CODED   (Need to fix later!)
-    linlevel = 40000.0
-    satslevel = 65535.0
-    # Reset various counters
+    # Set the saturation level and reset counters
+    linlevel = rtdefs['linlevel']
+    satslevel = rtdefs['satslevel']
+    
     bad=sats=nonlin=0
 
     # Get the size of the image array

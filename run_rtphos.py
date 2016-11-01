@@ -973,6 +973,8 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     skyskew    = defs[18].split()[0]
     skyfit     = defs[19].split()[0]
     gain       = defs[20].split()[0]
+    linlevel   = defs[21].split()[0]
+    satslevel  = defs[22].split()[0]
     # These are numbers:
     verbose    =   int(defs[21].split()[0])
     tsleep     =   int(defs[22].split()[0])
@@ -1014,7 +1016,8 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     rtdefs = {'biaswc':biaswc, 'darkwc':darkwc, 'flatwc':flatwc, 'mbias':mbias,\
                'mdark':mdark,   'mflat':mflat, 'psfs':psfs, 'stars':stars, 'cprefix':cprefix, \
               'sradius':sradius, 'aradius':aradius, 'cradius':cradius, 'starnumber':starnumber, \
-              'skyskew':skyskew, 'skyfit':skyfit, 'gain':gain, 'verbose':verbose, 'tsleep':tsleep}
+              'skyskew':skyskew, 'skyfit':skyfit, 'gain':gain, 'linlevel':linlevel, \
+              'satslevel':satslevel, 'verbose':verbose, 'tsleep':tsleep}
 
     ######## DS9 SOURCE IDENTIFICATION AND FWHM ESTIMATE ###########
     # Ceontrid regions in DS9
