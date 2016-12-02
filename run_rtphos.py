@@ -797,7 +797,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                     #ydflux.append(ydfluxs)                       
                     #ydfluxerr.append(ydfluxerrs)
                     
-                    time.sleep(10)
+                    #time.sleep(5)
                     
         before = after
         time.sleep(tsleep)   # Wait for tsleep seconds before repeating
@@ -976,8 +976,8 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     linlevel   = defs[21].split()[0]
     satslevel  = defs[22].split()[0]
     # These are numbers:
-    verbose    =   int(defs[21].split()[0])
-    tsleep     =   int(defs[22].split()[0])
+    verbose    =   int(defs[23].split()[0])
+    tsleep     =   int(defs[24].split()[0])
 
     # Current root working dir
     current_dir = os.path.abspath(os.path.join(data_dir, os.pardir))
