@@ -23,3 +23,4 @@ c_     # Prefix for calibrated files
 65000     # Instrument saturation level
 0     # Verbose output switch
 3     # Sleep time before checking for new frames
+0     # Liveplot option 

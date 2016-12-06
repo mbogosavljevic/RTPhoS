@@ -26,7 +26,8 @@ param rtphosdef
  linlevel    entry {Instrument linearity level}     0
  satslevel   entry {instrument saturation level}    0
  verbose     checkbox {Verbose output switch}       0
- tsleep   entry {Sleep time before checking for new frames [s]} 3
+ tsleep      entry {Sleep time before checking for new frames [s]} 3
+ liveplot    checkbox {Real-time plot}
 endparam
 
 param fakedata
@@ -69,7 +70,7 @@ endparam
 RTPhoS Settings
 *
 menu
-$param(rtphosdef); $param(fakedata); $param(server); $param(logger); xterm -hold -sb -sl 2000 -e tcsh -c "$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $linlevel $satslevel $verbose $tsleep $fsleep $tfile $cfile $port $obsid $band $sslep $dpath $tdfile  $public $cdfile  $tfits $cfits $lport $lfile $lband $ltfits $lcfits" 
+$param(rtphosdef); $param(fakedata); $param(server); $param(logger); xterm -hold -sb -sl 2000 -e tcsh -c "$rtphos/write_rtphos_defaults.py $rtphos $pathdefs $pathlog $pathans $pathdata $pathbias $pathdark $pathflat $stringbias $stringdark $stringflat $namebias $namedark $nameflat $stars $psfs $cprefix $sradius $aradius $cradius $starnumber $skyskew $skyfit $gain $linlevel $satslevel $verbose $tsleep $liveplot $fsleep $tfile $cfile $port $obsid $band $sslep $dpath $tdfile  $public $cdfile  $tfits $cfits $lport $lfile $lband $ltfits $lcfits" 
 
 RUN RTPhoS data reduction
 *

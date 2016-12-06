@@ -757,28 +757,35 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                               seeing, xyposlist[i][0], xyposlist[i][1], apflaglist[i]
                     print
 
-                    # Crop target and comparison star images and output to file
-                    # for transmition.Images are overwritten with the same filename.
-                    # image names are hardcoded to target.fits and comp.fits
-                    # First remove inf values from the image array and set them to 0.
-                    prev_dir = os.path.abspath(os.curdir)
-                    os.chdir(dirs['reduced'])
-                    dataplt = data2
-                    dataplt[dataplt == -inf] = 0.0             
-                    # Crop a 100px square around the target and write to file
-                    targetx = float(xyposlist[0][0])
-                    targety = float(xyposlist[0][1])
-                    target_crop = dataplt[targety-50:targety+50,targetx-50:targetx+50]
-                    hdu=pyfits.PrimaryHDU(target_crop)
-                    hdu.writeto("target.fits", clobber='True')
-                    # Crop a 100px square around the first comparison star and write to file
-                    compx = float(xyposlist[1][0])
-                    compy = float(xyposlist[1][1])
-                    comp_crop = dataplt[compy-50:compy+50,compx-50:compx+50]
-                    hdu=pyfits.PrimaryHDU(comp_crop)
-                    hdu.writeto("comp.fits", clobber='True')
-                    os.chdir(prev_dir)
+                    # If user has requested to liveplot or broadcast the data then 
+                    # run the following.
+                    # Real-time plotting
+                    if rtdefs['liveplot']: print "I'm happy!"
+                       # Crop target and comparison star images and output to file
+                       # for transmition.Images are overwritten with the same filename.
+                       # image names are hardcoded to target.fits and comp.fits
+                       # First remove inf values from the image array and set them to 0.
+                       prev_dir = os.path.abspath(os.curdir)
+                       os.chdir(dirs['reduced'])
+                       dataplt = data2
+                       dataplt[dataplt == -inf] = 0.0             
+                       # Crop a 100px square around the target and write to file
+                       targetx = float(xyposlist[0][0])
+                       targety = float(xyposlist[0][1])
+                       target_crop = dataplt[targety-50:targety+50,targetx-50:targetx+50]
+                       hdu=pyfits.PrimaryHDU(target_crop)
+                       hdu.writeto("target.fits", clobber='True')
+                       # Crop a 100px square around the first comparison star and write to file
+                       compx = float(xyposlist[1][0])
+                       compy = float(xyposlist[1][1])
+                       comp_crop = dataplt[compy-50:compy+50,compx-50:compx+50]
+                       hdu=pyfits.PrimaryHDU(comp_crop)
+                       hdu.writeto("comp.fits", clobber='True')
+                       os.chdir(prev_dir)
                     
+                       # Broadcasting (TBD)
+                           
+                                        
                     # Fill the data lists
                     #xdata.append(twosig_time)
                     #yseeing.append(seeing)
@@ -798,6 +805,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                     #ydfluxerr.append(ydfluxerrs)
                     
                     #time.sleep(5)
+                    
                     
         before = after
         time.sleep(tsleep)   # Wait for tsleep seconds before repeating
@@ -978,6 +986,7 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     # These are numbers:
     verbose    =   int(defs[23].split()[0])
     tsleep     =   int(defs[24].split()[0])
+    liveplot   =   int(defs[25].split()[0])
 
     # Current root working dir
     current_dir = os.path.abspath(os.path.join(data_dir, os.pardir))
@@ -1007,6 +1016,11 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
        verbose='Y'
     else:
        verbose='N'
+    # Convert liveplot switch value to boolean
+    if liveplot==1:
+       liveplot=True
+    else:
+       liveplot=False
 
     # Make a dictionary with all the required directories.
     dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, \
@@ -1017,7 +1031,7 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
                'mdark':mdark,   'mflat':mflat, 'psfs':psfs, 'stars':stars, 'cprefix':cprefix, \
               'sradius':sradius, 'aradius':aradius, 'cradius':cradius, 'starnumber':starnumber, \
               'skyskew':skyskew, 'skyfit':skyfit, 'gain':gain, 'linlevel':linlevel, \
-              'satslevel':satslevel, 'verbose':verbose, 'tsleep':tsleep}
+              'satslevel':satslevel, 'verbose':verbose, 'tsleep':tsleep, 'liveplot':liveplot}
 
     ######## DS9 SOURCE IDENTIFICATION AND FWHM ESTIMATE ###########
     # Ceontrid regions in DS9
