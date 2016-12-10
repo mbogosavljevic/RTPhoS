@@ -54,6 +54,7 @@ from   scipy import signal, ndimage
 from   subprocess import call, Popen, PIPE
 import f2n
 import sys, select, os
+import subprocess
 
 #import matplotlib.pyplot as plt
 #from matplotlib.colors import LogNorm
@@ -184,10 +185,10 @@ def get_comps_fwhm(comparisons, xpapoint):
         xt = comparisons[i][0][0]
         yt = comparisons[i][0][1]
         r  = comparisons[i][0][2]
-        x1 = xt - r
-        x2 = xt + r
-        y1 = yt - r
-        y2 = yt + r   
+        x1 = int(xt - r)
+        x2 = int(xt + r)
+        y1 = int(yt - r)
+        y2 = int(yt + r)   
         # caution - I don't know why order of x and y is inverted here
         crop_image = image[y1:y2,x1:x2]
 #        hdu=pyfits.PrimaryHDU(crop_image)
@@ -273,6 +274,8 @@ def barytime(checklist, dirs):
 #############################################################################
 def getoffsets(dataref,data2red):
     
+    # print "IN:", data2red[100,100]
+    
     xshift = 0
     yshift = 0
     
@@ -319,14 +322,15 @@ def getoffsets(dataref,data2red):
     yend   = ysize2-10
     croped2 = data2red[xstart:xend,ystart:yend]
     median2 = np.median(croped2)
-      	
+
     # Create image 2 mask and blur it
     mask2   = croped2
     mask2[mask2 < 1.5*median2] = 0.0
     blured2 = ndimage.gaussian_filter(croped2, sigma=1)
     mask2   = blured2
     mask2[mask2 < 100.0] = 0.0
-      
+    # print "OUT:", data2red[100,100]
+    
     # Create collapsed image arrays for image 2
     xvals2=mask2.sum(axis=0)
     yvals2=mask2.sum(axis=1)
@@ -488,7 +492,7 @@ def positions(optimalist, xyposlist, initx, inity, ntarg):
 
 #############################################################################
 def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist, xyposlist, seeing, \
-                frame_time, frame_timerr, pdatetime, filename, count, runpass):
+                filterobs, frame_time, frame_timerr, pdatetime, filename, count, runpass):
 
 #   Output text file format example.
 #   No.    UTCdatetime       BJD            terr[s]  Flux       Flux_err    seeing flag  filename
@@ -505,8 +509,8 @@ def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist
            # First write the optimal photometry data
            with open(alltargets[i][1]+".opt_tmp", "a") as outfile:
                 outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, optimalist[i][0], \
-                           optimalist[i][1], float(seeing), opflaglist[i], filename)
-                fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s \n'
+                           optimalist[i][1], float(seeing), filterobs, opflaglist[i], filename)
+                fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s %s \n'
                 outfile.write(fmtstring % outdata)
 #                outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
 #                " "+ str(frame_timerr)+" "+str(optimalist[i][0])+" "+\
@@ -516,8 +520,8 @@ def outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, apflaglist
            with open(alltargets[i][1]+".dat", "a") as outfile:
                 #outdata = (count, aperatlist[i][0], aperatlist[i][1], xyposlist[i][0], xyposlist[i][1])
                 outdata = (count, pdatetime, frame_time, frame_timerr*86400.0, aperatlist[i][0], \
-                           aperatlist[i][1], float(seeing), apflaglist[i], filename)
-                fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s \n'
+                           aperatlist[i][1], float(seeing), filterobs, apflaglist[i], filename)
+                fmtstring = '%5i %20s %15.6f %6.2f %12s %9s %6.2f %s %s %s \n'
                 #fmtstring = '%5i %12s %9s %7s %7s \n'
                 outfile.write(fmtstring % outdata)
 #                outfile.write(str(count)+" "+pdatetime+" "+str(frame_time)+\
@@ -670,7 +674,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                     # The flag file is a FITS file with an .flg extension. 
                     # See ccdcalib.py for more info.
                     ccdcalib.pixflag(rtdefs, dirs, filename, data2, hdr)
-
+                                                         
                     # ccdcalib will either calibrate the image and place the
                     # calibrated image file in the '/reduced/' directory or
                     # if the image did not require calibration just copy the image
@@ -678,12 +682,19 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                     # have a prefix to indicate that ccdcalib has seen it.
                     calib_data = ccdcalib.calib(rtdefs, dirs, filename, data2, hdr)
                     (data2, hdr, calib_fname) = calib_data
-
+                    
                     # Find offsets from reference frame (displayed on DS9)
                     thisoffset = (0,0)
-                    if (count>1): 
+                    if (count>1):
+                       #print "Here1:", data2[100,100]
                        thisoffset = getoffsets(dataref,data2)
-                          
+                       #print "Here2:", data2[100,100]   
+                       
+                    # For some reason the data2 array gets altered after the call
+                    # to getoffsets. Need to find out why later. 
+                    # For now just read it in again.    
+                    data2, hdr = pyfits.getdata(filename, header=True) 
+                    
                     print "* Frame Offsets: (x,y) ", thisoffset
 
                     # Call optimal and do the photometry.
@@ -737,9 +748,15 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                     frameslist.append(filename)
                     calib_frameslist.append(calib_fname)
                        
+                    # Get the Filter used for this image
+                    filterobs = checklist['FILTER']   
+                    if filterobs=="Invalid":
+                       filterobs="INV"
+                       
                     # Write the result to the output files
                     outputfiles(dirs, alltargets, optimalist, aperatlist, opflaglist, \
-                    apflaglist, xyposlist, seeing, frame_time, midexp, pdatetime, sfilename, count, 1)
+                    apflaglist, xyposlist, seeing, filterobs, frame_time, midexp, \
+                    pdatetime, sfilename, count, 1)
                       
                     # Text output
                     print "================================================="
@@ -756,32 +773,61 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                         print alltargets[i][1], aperatlist[i][0], aperatlist[i][1], \
                               seeing, xyposlist[i][0], xyposlist[i][1], apflaglist[i]
                     print
-
+                    
                     # If user has requested to liveplot or broadcast the data then 
                     # run the following.
                     # Real-time plotting
-                    if rtdefs['liveplot']: print "I'm happy!"
+                    if rtdefs['liveplot']:
                        # Crop target and comparison star images and output to file
                        # for transmition.Images are overwritten with the same filename.
                        # image names are hardcoded to target.fits and comp.fits
                        # First remove inf values from the image array and set them to 0.
                        prev_dir = os.path.abspath(os.curdir)
                        os.chdir(dirs['reduced'])
-                       dataplt = data2
-                       dataplt[dataplt == -inf] = 0.0             
+                       data2[data2 == -inf] = 0.0             
                        # Crop a 100px square around the target and write to file
                        targetx = float(xyposlist[0][0])
                        targety = float(xyposlist[0][1])
-                       target_crop = dataplt[targety-50:targety+50,targetx-50:targetx+50]
+                       target_crop = data2[int(targety-50):int(targety+50),int(targetx-50):int(targetx+50)]
                        hdu=pyfits.PrimaryHDU(target_crop)
                        hdu.writeto("target.fits", clobber='True')
                        # Crop a 100px square around the first comparison star and write to file
                        compx = float(xyposlist[1][0])
                        compy = float(xyposlist[1][1])
-                       comp_crop = dataplt[compy-50:compy+50,compx-50:compx+50]
+                       comp_crop = data2[int(compy-50):int(compy+50),int(compx-50):int(compx+50)]
                        hdu=pyfits.PrimaryHDU(comp_crop)
                        hdu.writeto("comp.fits", clobber='True')
-                       os.chdir(prev_dir)
+                      
+                       # Merge the target data with the data of the first comparison star
+                       # and put them in a file to be read by the live plotting module.
+                       # Since the file is of no other use the name is hardcoded here as
+                       # liveplotdata.txt
+                       port=5556
+                       with open("liveplotdata.txt", "a") as outfile:
+                            # output data written is:
+                            # count, server port, filter, BJD, target name, target flux, target eflux, \
+                            # comp name, comp flux, comp eflux, seeing
+                            outdata = (count, port, filterobs, frame_time, alltargets[0][1], aperatlist[0][0], aperatlist[0][1],\
+                                       alltargets[1][1], aperatlist[1][0], aperatlist[1][1], float(seeing))
+                            fmtstring = '%5i %4i %3s %15.6f %8s %12s %9s %8s %12s %9s %6.2f \n'
+                            outfile.write(fmtstring % outdata)
+                    
+                       # Constract the shell command to run the live plotting module.
+                       # Need to find a better way but for now the only way for the code
+                       # not to hang when launching a process is to create and run a
+                       # shell script. 
+                       if count==1:
+                          command = 'xterm -hold -sb -sl 2000 -e tcsh -c "python liveplot.py 5556 '+filterobs+\
+                                    ' -logfile "liveplotdata.txt" " &'
+                          with open("rtphos_liveplot.csh", "w") as outfile:
+                               outfile.write(command)
+                          
+                          # Read that os.system is being derecated and replaced with subprocess...
+                          # The same goes for all os calls.
+                          subprocess.call("source ./rtphos_liveplot.csh", shell=True)
+                   
+                       os.chdir(prev_dir)    
+                    
                     
                        # Broadcasting (TBD)
                            
@@ -804,7 +850,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                     #ydflux.append(ydfluxs)                       
                     #ydfluxerr.append(ydfluxerrs)
                     
-                    #time.sleep(5)
+                    time.sleep(10)
                     
                     
         before = after
@@ -914,7 +960,8 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
         # Write the result to the output files
         count=i+1
         outputfiles(dirs, alltargets, optimalist_2, aperatlist_2, opflaglist_2, \
-        apflaglist_2, xyposlist_2, seeing_2, frame_times[i], frame_timerrs[i], pdatetimes[i], "  ", count, 2)
+                    apflaglist_2, xyposlist_2, seeing_2, filterobs, frame_times[i], \
+                    frame_timerrs[i], pdatetimes[i], "  ", count, 2)
 
     print
     print "==== RTPhoS END ==== " + time.strftime('%X %x %Z') 
@@ -1021,6 +1068,8 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
        liveplot=True
     else:
        liveplot=False
+
+    liveplot=True
 
     # Make a dictionary with all the required directories.
     dirs = {'current':current_dir, 'bias':bias_dir, 'dark':dark_dir, \
