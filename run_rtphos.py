@@ -774,9 +774,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                               seeing, xyposlist[i][0], xyposlist[i][1], apflaglist[i]
                     print
                     
-                    # If user has requested to liveplot or broadcast the data then 
-                    # run the following.
-                    # Real-time plotting
+                    # Live plotting
                     if rtdefs['liveplot']:
                        # Crop target and comparison star images and output to file
                        # for transmition.Images are overwritten with the same filename.
@@ -802,7 +800,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        # and put them in a file to be read by the live plotting module.
                        # Since the file is of no other use the name is hardcoded here as
                        # liveplotdata.txt
-                       port=5556
+                       port=5556      #HARDCODED HERE 
                        with open("liveplotdata.txt", "a") as outfile:
                             # output data written is:
                             # count, server port, filter, BJD, target name, target flux, target eflux, \
@@ -815,22 +813,22 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                        # Constract the shell command to run the live plotting module.
                        # Need to find a better way but for now the only way for the code
                        # not to hang when launching a process is to create and run a
-                       # shell script. 
+                       # shell script. Extremely ugly but it will do for now!
                        if count==1:
-                          command = 'xterm -hold -sb -sl 2000 -e tcsh -c "python liveplot.py 5556 '+filterobs+\
+                          command1 = 'cp '+dirs['current']+'/liveplot.py '+'. \n'
+                          command2 = 'xterm -hold -sb -sl 2000 -e tcsh -c "python liveplot.py '+str(port)+' '+filterobs+\
                                     ' -logfile "liveplotdata.txt" " &'
                           with open("rtphos_liveplot.csh", "w") as outfile:
-                               outfile.write(command)
+                               outfile.write(command1)
+                               outfile.write(command2)
                           
                           # Read that os.system is being derecated and replaced with subprocess...
-                          # The same goes for all os calls.
+                          # The same goes for all os calls. We should eventually replace all os calls.
                           subprocess.call("source ./rtphos_liveplot.csh", shell=True)
                    
                        os.chdir(prev_dir)    
                     
                     
-                       # Broadcasting (TBD)
-                           
                                         
                     # Fill the data lists
                     #xdata.append(twosig_time)
@@ -850,7 +848,7 @@ def seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm):
                     #ydflux.append(ydfluxs)                       
                     #ydfluxerr.append(ydfluxerrs)
                     
-                    time.sleep(10)
+                    #time.sleep(10)
                     
                     
         before = after
@@ -1161,26 +1159,20 @@ def run_rtphos(rtphosdir, xpapoint, pathdefs):
     result = ccdcalib.calib(rtdefs, dirs, ref_filename, dataref, hdr)
     (dataref, hdr, calib_fname) = result
 
-    # Matplotlib calls - probably needs to go but keeping them for now.
-    #plt.ion()
-    #plt.figure(figsize=(12,12))
-    #ax1  = plt.subplot(421)
-    #ax2  = plt.subplot(422)
-    #ax3  = plt.subplot(412)
-    #ax4  = plt.subplot(413, sharex=ax3)
-    #ax5  = plt.subplot(414, sharex=ax3)
-
-    #fig1 = plt.figure(figsize=(8,8))
-    #ax1  = fig1.add_subplot(221)
-    #ax2  = fig1.add_subplot(222)
-    #fig2 = plt.figure(figsize=(12,12))
-
     print "####################################################################"
     print "Starting pipeline routine..."
-    #seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm, ax1, ax2, ax3, ax4, ax5)
-
-
     seekfits(rtdefs, dataref, dirs, tsleep, comparisons, targets, psf_fwhm)
+    
+    # Clean-up auxillary files
+    if rtdefs['liveplot']:
+       # Move to the reduced files directory
+       prev_dir = os.path.abspath(os.curdir)
+       os.chdir(dirs['reduced'])
+       subprocess.call('rm -rf *_tmp *_diff liveplot.py comp.fits target.fits \
+                       liveplotdata.txt rtphos_liveplot.csh', shell=True) 
+       os.chdir(prev_dir)   
+    
+
 if  __name__ == "__main__":
 
     import sys
@@ -1188,3 +1180,9 @@ if  __name__ == "__main__":
     xpapoint       = sys.argv[1]
     pathdefs       = sys.argv[2]
     run_rtphos(rtphosdir, xpapoint, pathdefs)
+    
+
+
+    
+    
+    
