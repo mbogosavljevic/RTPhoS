@@ -229,13 +229,16 @@ def barytime(checklist, dirs):
     time = " ".join(time)
     # Deconstruct the RA string from the RA Keyword
     if (checklist['RA'] != "Invalid"):
+       checklist['RA']=checklist['RA'].lstrip() # Remove any leading spaces
        if ':' in checklist['RA']: ra  = checklist['RA'].split(':')
        if ' ' in checklist['RA']: ra  = checklist['RA'].split(' ')
     else:
        ra = "NaN"
+    print "Here: ", ra
     ra = " ".join(ra)
     # Deconstruct the Dec string from the DEC Keyword
     if (checklist['DEC'] != "Invalid"):
+       checklist['DEC']=checklist['DEC'].lstrip() # Remove any leading spaces
        if ':' in checklist['DEC']: dec  = checklist['DEC'].split(':')
        if ' ' in checklist['DEC']: dec  = checklist['DEC'].split(' ')
     else:
@@ -259,8 +262,9 @@ def barytime(checklist, dirs):
     inputline1 = equin+" "+" "+ra+  " "+dec
     inputline2 = date +" "+" "+time+" "+" "+utcorr+" "+" "+exposure
 
-    #print inputline1
-    #print inputline2
+    print ra
+    print inputline1
+    print inputline2
 
     p = Popen(["barycor"], stdin=PIPE, stdout=PIPE)
 

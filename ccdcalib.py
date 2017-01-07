@@ -157,9 +157,9 @@ def makechecklist(hdr):
     # Get the Declination from the header
     if "TEL_DEC" in keylist:
        checklist['DEC'] = hdr['TEL_DEC']
-    elif "TEL-RA" in keylist:
+    elif "TEL-DEC" in keylist:
        checklist['DEC'] = hdr['TEL-DEC']
-    elif "OBJCTRA" in keylist:
+    elif "OBJCTDEC" in keylist:
        checklist['DEC'] = hdr['OBJCTDEC']
     else:
        checklist['DEC'] = "Invalid"
