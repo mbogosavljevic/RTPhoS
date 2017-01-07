@@ -234,7 +234,6 @@ def barytime(checklist, dirs):
        if ' ' in checklist['RA']: ra  = checklist['RA'].split(' ')
     else:
        ra = "NaN"
-    print "Here: ", ra
     ra = " ".join(ra)
     # Deconstruct the Dec string from the DEC Keyword
     if (checklist['DEC'] != "Invalid"):
@@ -262,9 +261,8 @@ def barytime(checklist, dirs):
     inputline1 = equin+" "+" "+ra+  " "+dec
     inputline2 = date +" "+" "+time+" "+" "+utcorr+" "+" "+exposure
 
-    print ra
-    print inputline1
-    print inputline2
+    #print inputline1
+    #print inputline2
 
     p = Popen(["barycor"], stdin=PIPE, stdout=PIPE)
 
