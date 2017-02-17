@@ -77,7 +77,7 @@ def plot_initialize():
     ax5.grid(True)
     ax5.margins(0.1,0.1)
     ax5.set_ylabel('Pixels')
-    ax5.set_ylim([0,3])
+    #ax5.set_ylim([0,3])
 
     return fig, ax1, ax2, ax3, ax4, ax5
     
@@ -198,7 +198,7 @@ def init_plot_data(fig, ax1, ax2, ax3, ax4, ax5, \
     ax5.set_ylabel('Pixels')
     line5, = ax5.plot(xdata2, yseeing, 'bo') 
     fig.legend([line5,], ['Seeing'], loc='upper left', \
-               bbox_to_anchor=[0.9,0.27], shadow=True, \
+               bbox_to_anchor=[0.9,0.25], shadow=True, \
                numpoints=1, prop={'size':8})
 
     # plot the error bars and collect them in
